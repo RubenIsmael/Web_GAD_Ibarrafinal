@@ -19,7 +19,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const renderContent = () => {
     switch (activeSection) {
       case 'home':
-        return <Home onNavigate={setActiveSection} />;
+        return <Home />;
       case 'requerimientos':
         return <Requerimientos />;
       case 'mensajeria':
