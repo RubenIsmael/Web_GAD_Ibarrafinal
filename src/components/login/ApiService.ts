@@ -2244,8 +2244,7 @@ export class ApiService {
         const stats = {
           total: businessListResponse.data.data.totalElements || businesses.length,
           pending: businesses.filter((b: any) => b.validationStatus === 'PENDING').length,
-          approved: businesses.filter((b: any) => b.validationStatus === 'APPROVED').length,
-          rejected: businesses.filter((b: any) => b.validationStatus === 'REJECTED').length
+          approved: businesses.filter((b: any) => b.validationStatus === 'APPROVED').length
         };
         
         console.log('✅ Estadísticas calculadas desde lista:', stats);

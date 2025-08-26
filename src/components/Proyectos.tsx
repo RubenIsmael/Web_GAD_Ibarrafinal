@@ -28,7 +28,6 @@ interface ProyectoStats {
   totalProyectos: number;
   pendientes: number;
   aprobados: number;
-  rechazados: number;
 }
 
 // Nueva interfaz para documentos
@@ -81,11 +80,10 @@ const Proyectos: React.FC = () => {
   const [stats, setStats] = useState<ProyectoStats>({
     totalProyectos: 0,
     pendientes: 0,
-    aprobados: 0,
-    rechazados: 0
+    aprobados: 0
   });
   
-  // *** COMPONENTE DOCUMENTVIEWER COMPLETO ***
+  // *** COMPONENTE DOCUMENTVIEWER COMPLETO CON ESTILOS INLINE ***
   const DocumentViewer = ({ 
     isOpen, 
     onClose, 
@@ -126,16 +124,42 @@ const Proyectos: React.FC = () => {
 
     if (!documentData || !documentName) {
       return (
-        <div className="document-viewer-overlay">
-          <div className="document-viewer-container">
-            <div className="document-viewer-error">
-              <FileText className="document-viewer-error-icon" />
-              <h3>Error al cargar documento</h3>
-              <p>No se pudieron cargar los datos del documento</p>
-              <button onClick={onClose} className="document-viewer-cancel-btn">
-                Cerrar
-              </button>
-            </div>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '400px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <FileText style={{ width: '48px', height: '48px', color: '#dc2626', margin: '0 auto 16px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Error al cargar documento</h3>
+            <p style={{ color: '#6b7280', marginBottom: '16px' }}>No se pudieron cargar los datos del documento</p>
+            <button 
+              onClick={onClose} 
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       );
@@ -200,104 +224,253 @@ const Proyectos: React.FC = () => {
     const handleRotate = (): void => setRotation(prev => (prev + 90) % 360);
 
     return (
-      <div className="document-viewer-overlay">
-        <div className="document-viewer-container">
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+        padding: '20px'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          width: '90vw',
+          height: '90vh',
+          maxWidth: '1200px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
           {/* Header */}
-          <div className="document-viewer-header">
-            <div className="document-viewer-title">
-              <FileText className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 title={documentName}>{documentName}</h3>
+          <div style={{
+            padding: '16px 24px',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#f9fafb'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <FileText style={{ width: '20px', height: '20px', color: '#2563eb', marginRight: '8px' }} />
+              <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: '#1f2937' }}>{documentName}</h3>
             </div>
             
-            <div className="document-viewer-controls">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {fileType === 'image' && !loading && imageLoaded && (
                 <>
-                  <button onClick={handleZoomOut} className="document-viewer-control-btn" disabled={zoom <= 25}>
-                    <ZoomOut className="w-4 h-4" />
+                  <button 
+                    onClick={handleZoomOut} 
+                    disabled={zoom <= 25}
+                    style={{
+                      padding: '6px',
+                      backgroundColor: zoom <= 25 ? '#f3f4f6' : '#e5e7eb',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: zoom <= 25 ? 'not-allowed' : 'pointer',
+                      color: zoom <= 25 ? '#9ca3af' : '#374151'
+                    }}
+                  >
+                    <ZoomOut style={{ width: '16px', height: '16px' }} />
                   </button>
-                  <span className="document-viewer-zoom-text">{zoom}%</span>
-                  <button onClick={handleZoomIn} className="document-viewer-control-btn" disabled={zoom >= 200}>
-                    <ZoomIn className="w-4 h-4" />
+                  <span style={{ fontSize: '14px', color: '#6b7280', minWidth: '40px', textAlign: 'center' }}>{zoom}%</span>
+                  <button 
+                    onClick={handleZoomIn} 
+                    disabled={zoom >= 200}
+                    style={{
+                      padding: '6px',
+                      backgroundColor: zoom >= 200 ? '#f3f4f6' : '#e5e7eb',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: zoom >= 200 ? 'not-allowed' : 'pointer',
+                      color: zoom >= 200 ? '#9ca3af' : '#374151'
+                    }}
+                  >
+                    <ZoomIn style={{ width: '16px', height: '16px' }} />
                   </button>
-                  <button onClick={handleRotate} className="document-viewer-control-btn">
-                    <RotateCw className="w-4 h-4" />
+                  <button 
+                    onClick={handleRotate}
+                    style={{
+                      padding: '6px',
+                      backgroundColor: '#e5e7eb',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      color: '#374151'
+                    }}
+                  >
+                    <RotateCw style={{ width: '16px', height: '16px' }} />
                   </button>
                 </>
               )}
-              <button onClick={onClose} className="document-viewer-close-btn">
-                <X className="w-5 h-5" />
+              <button 
+                onClick={onClose}
+                style={{
+                  padding: '6px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  marginLeft: '8px'
+                }}
+              >
+                <X style={{ width: '20px', height: '20px' }} />
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div className="document-viewer-content">
-            <div className="document-viewer-content-inner">
-              {loading ? (
-                <div className="document-viewer-loading">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-                  <span>Cargando documento...</span>
-                </div>
-              ) : error ? (
-                <div className="document-viewer-error">
-                  <FileText className="document-viewer-error-icon" />
-                  <h3>Error al cargar</h3>
-                  <p>{error}</p>
-                </div>
-              ) : fileType === 'pdf' ? (
-                <iframe
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            backgroundColor: '#f8fafc',
+            overflow: 'hidden'
+          }}>
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: '3px solid #e5e7eb',
+                  borderTopColor: '#2563eb',
+                  animation: 'spin 1s linear infinite',
+                  marginBottom: '12px'
+                }}></div>
+                <span style={{ color: '#6b7280' }}>Cargando documento...</span>
+              </div>
+            ) : error ? (
+              <div style={{ textAlign: 'center' }}>
+                <FileText style={{ width: '48px', height: '48px', color: '#dc2626', margin: '0 auto 16px' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>Error al cargar</h3>
+                <p style={{ color: '#6b7280' }}>{error}</p>
+              </div>
+            ) : fileType === 'pdf' ? (
+              <iframe
+                src={dataUrl}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  borderRadius: '8px'
+                }}
+                title={documentName}
+                onError={() => setError('Error al cargar el archivo PDF')}
+              />
+            ) : (
+              <div style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'auto'
+              }}>
+                {!imageLoaded && !error && (
+                  <div style={{ display: 'flex', alignItems: 'center', position: 'absolute' }}>
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      border: '2px solid #e5e7eb',
+                      borderTopColor: '#2563eb',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '8px'
+                    }}></div>
+                    <span style={{ color: '#6b7280' }}>Cargando imagen...</span>
+                  </div>
+                )}
+                <img
                   src={dataUrl}
-                  className="document-viewer-iframe"
-                  title={documentName}
-                  onError={() => setError('Error al cargar el archivo PDF')}
+                  alt={documentName}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                    transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                    transition: 'transform 0.2s ease',
+                    display: imageLoaded ? 'block' : 'none'
+                  }}
+                  onLoad={() => {
+                    setImageLoaded(true);
+                    setError('');
+                  }}
+                  onError={() => {
+                    setError('Error al cargar la imagen');
+                    setImageLoaded(false);
+                  }}
                 />
-              ) : (
-                <div className="document-viewer-image-container">
-                  {!imageLoaded && !error && (
-                    <div className="document-viewer-loading">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      <span>Cargando imagen...</span>
-                    </div>
-                  )}
-                  <img
-                    src={dataUrl}
-                    alt={documentName}
-                    className="document-viewer-image"
-                    style={{
-                      transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                      transition: 'transform 0.2s ease',
-                      display: imageLoaded ? 'block' : 'none'
-                    }}
-                    onLoad={() => {
-                      setImageLoaded(true);
-                      setError('');
-                    }}
-                    onError={() => {
-                      setError('Error al cargar la imagen');
-                      setImageLoaded(false);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
-          <div className="document-viewer-footer">
-            <div className="document-viewer-info">
+          <div style={{
+            padding: '16px 24px',
+            borderTop: '1px solid #e5e7eb',
+            backgroundColor: '#f9fafb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ color: '#6b7280', fontSize: '14px' }}>
               {fileType === 'pdf' ? 'Documento PDF' : 'Imagen'} • {documentName}
             </div>
-            <div className="document-viewer-actions">
-              <button onClick={handleDownload} className="document-viewer-download-btn" disabled={loading}>
-                <Download className="w-4 h-4 mr-2" />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={handleDownload} 
+                disabled={loading}
+                style={{
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: '14px'
+                }}
+              >
+                <Download style={{ width: '16px', height: '16px', marginRight: '6px' }} />
                 Descargar
               </button>
-              <button onClick={onClose} className="document-viewer-cancel-btn">
+              <button 
+                onClick={onClose}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
                 Cerrar
               </button>
             </div>
           </div>
         </div>
+
+        {/* Keyframes para animación de carga */}
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   };
@@ -311,6 +484,15 @@ const Proyectos: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+
+  // Función wrapper para setCurrentPage que valida valores negativos
+  const setCurrentPageSafe = (page: number) => {
+    const validPage = Math.max(0, page);
+    if (page !== validPage) {
+      console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+    }
+    setCurrentPage(validPage);
+  };
   
   // Estados para UI
   const [loading, setLoading] = useState(false);
@@ -509,7 +691,7 @@ const Proyectos: React.FC = () => {
     }
   };
 
-  // Cargar proyectos
+  // Cargar proyectos - MODIFICADO PARA ORDENAR DEL MÁS NUEVO AL MÁS ANTIGUO
   const loadProyectos = async (page: number = currentPage, size: number = pageSize) => {
     try {
       setLoading(true);
@@ -551,10 +733,23 @@ const Proyectos: React.FC = () => {
           } as ProyectoAPI;
         });
         
-        setProyectos(proyectosNormalizados);
+        // *** CAMBIO 1: ORDENAR DEL MÁS NUEVO AL MÁS ANTIGUO ***
+        const proyectosOrdenados = proyectosNormalizados.sort((a, b) => {
+          // Primero intentar ordenar por fecha de envío si existe
+          if (a.fechaEnvio && b.fechaEnvio) {
+            return new Date(b.fechaEnvio).getTime() - new Date(a.fechaEnvio).getTime();
+          }
+          
+          // Si no hay fechas, ordenar por ID (asumiendo que IDs más altos son más recientes)
+          const idA = parseInt(a.id) || 0;
+          const idB = parseInt(b.id) || 0;
+          return idB - idA; // Descendente (más nuevo primero)
+        });
+        
+        setProyectos(proyectosOrdenados);
         setTotalPages(response.data.totalPages);
         setTotalElements(response.data.totalElements);
-        setCurrentPage(response.data.pageable.pageNumber);
+        setCurrentPageSafe(response.data.pageable.pageNumber);
         
         setTimeout(() => filtrarProyectos(), 0);
         setRenderError('');
@@ -586,27 +781,24 @@ const Proyectos: React.FC = () => {
         apiService.getAdminDashboardStats()
       ]);
 
-      let total = 0, pending = 0, approved = 0, rejected = 0;
+      let total = 0, pending = 0, approved = 0;
 
       if (bizStatsRes.status === 'fulfilled' && bizStatsRes.value.success && bizStatsRes.value.data) {
         const d: any = bizStatsRes.value.data;
         total = Number(d.total ?? d.totalUsers ?? 0);
         pending = Number(d.pending ?? d.pendingUsers ?? 0);
         approved = Number(d.approved ?? d.approvedUsers ?? 0);
-        rejected = Number(d.rejected ?? d.rejectedUsers ?? 0);
       } else if (adminStatsRes.status === 'fulfilled' && adminStatsRes.value.success && adminStatsRes.value.data) {
         const d: any = adminStatsRes.value.data;
         total = Number(d.totalUsers ?? d.total ?? 0);
         pending = Number(d.pendingUsers ?? d.pending ?? 0);
         approved = Number(d.approvedUsers ?? d.approved ?? 0);
-        rejected = Number(d.rejectedUsers ?? d.rejected ?? 0);
       }
 
       setStats({
         totalProyectos: total,
         pendientes: pending,
-        aprobados: approved,
-        rechazados: rejected
+        aprobados: approved
       });
     } catch (e) {
       console.warn('No se pudieron cargar estadísticas del backend');
@@ -701,7 +893,7 @@ const Proyectos: React.FC = () => {
   // Cambiar página
   const changePage = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
+      setCurrentPageSafe(newPage);
       loadProyectos(newPage, pageSize);
     }
   };
@@ -709,7 +901,7 @@ const Proyectos: React.FC = () => {
   // Cambiar tamaño de página
   const changePageSize = (newSize: number) => {
     setPageSize(newSize);
-    setCurrentPage(0);
+    setCurrentPageSafe(0);
     loadProyectos(0, newSize);
   };
 
@@ -744,7 +936,7 @@ const Proyectos: React.FC = () => {
 
   const handleFilterChange = (newFilter: string) => {
     setFilterStatus(newFilter);
-    setCurrentPage(0);
+    setCurrentPageSafe(0);
     setTimeout(() => filtrarProyectos(), 0);
   };
 
@@ -1063,17 +1255,7 @@ const Proyectos: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="proyectos-stat-card">
-          <div className="proyectos-stat-content">
-            <div>
-              <p className="proyectos-stat-text-sm">Rechazados</p>
-              <p className="proyectos-stat-text-lg">{stats.rechazados}</p>
-            </div>
-            <div className="proyectos-stat-icon-container bg-red-100">
-              <X className="proyectos-stat-icon text-red-600" />
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Filtros y búsqueda */}
@@ -1088,7 +1270,7 @@ const Proyectos: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  setCurrentPage(0);
+                  setCurrentPageSafe(0);
                   filtrarProyectos();
                 }
               }}
@@ -1109,7 +1291,7 @@ const Proyectos: React.FC = () => {
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="aprobado">Aprobado</option>
-                <option value="rechazado">Rechazado</option>
+
                 <option value="en-progreso">En Progreso</option>
                 <option value="completado">Completado</option>
               </select>
@@ -1426,13 +1608,13 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para ver documentos - EXACTAMENTE COMO EN TU IMAGEN */}
+      {/* Modal para ver documentos - *** CAMBIO 3: CAMBIO DE TÍTULO *** */}
       {showDocumentsModal && selectedProyecto && (
         <div className="proyectos-modal-overlay">
           <div className="proyectos-modal max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="proyectos-modal-title">
-                Documentos del Proyecto: {selectedProyecto.nombre}
+                Documentos del Comerciante: {selectedProyecto.nombre}
               </h2>
               <button
                 onClick={() => {
@@ -2115,7 +2297,7 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Visor de documentos - VENTANA FLOTANTE COMPLETA */}
+      {/* *** CAMBIO 2: VISOR DE DOCUMENTOS FUNCIONAL EN VENTANA FLOTANTE *** */}
       <DocumentViewer
         isOpen={showDocumentViewer}
         onClose={() => {

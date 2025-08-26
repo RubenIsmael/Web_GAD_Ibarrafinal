@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, MessageSquare, Send, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, MessageSquare, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { ApiService } from './login/ApiService';
 import '../styles/localesComerciales.css';
 
@@ -82,6 +82,7 @@ const validarEstadoNegocio = (estado: string | undefined): 'PENDING' | 'APPROVED
       return 'PENDING';
     case 'APPROVED':
     case 'APROBADO':
+    case 'VALIDATED':
       return 'APPROVED';
     case 'REJECTED':
     case 'RECHAZADO':
@@ -111,6 +112,71 @@ const LocalesComerciales: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+
+  // Función wrapper para setCurrentPage que valida valores negativos
+  const setCurrentPageSafe = (page: number) => {
+    const validPage = Math.max(0, page);
+    if (page !== validPage) {
+      console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+    }
+    setCurrentPage(validPage);
+  };
+
+  // Función para agrupar negocios por usuario
+  const agruparNegociosPorUsuario = (negocios: BusinessAPI[]) => {
+    const grupos = new Map<string, BusinessAPI[]>();
+    
+    negocios.forEach(negocio => {
+      const userId = negocio.user.id.toString();
+      if (!grupos.has(userId)) {
+        grupos.set(userId, []);
+      }
+      grupos.get(userId)!.push(negocio);
+    });
+    
+    return Array.from(grupos.entries()).map(([userId, negociosDelUsuario]) => ({
+      userId,
+      user: negociosDelUsuario[0].user,
+      negocios: negociosDelUsuario
+    }));
+  };
+
+  // Función para obtener usuarios paginados
+  const obtenerUsuariosPaginados = (negocios: BusinessAPI[], page: number, size: number) => {
+    const usuariosAgrupados = agruparNegociosPorUsuario(negocios);
+    const startIndex = page * size;
+    const endIndex = startIndex + size;
+    return usuariosAgrupados.slice(startIndex, endIndex);
+  };
+
+  // Función para calcular el total de páginas basado en usuarios
+  const calcularTotalPaginasUsuarios = (negocios: BusinessAPI[], size: number) => {
+    const totalUsuarios = agruparNegociosPorUsuario(negocios).length;
+    return Math.ceil(totalUsuarios / size);
+  };
+
+  // Función para corregir URLs incorrectas
+  const corregirURL = (url: string): string => {
+    if (!url || !url.startsWith('http')) return url;
+    
+    let urlCorregida = url;
+    
+    // Corregir IPs incorrectas
+    if (url.includes('192.168.56.1') || url.includes('192.168.1.25')) {
+      urlCorregida = urlCorregida.replace(/192\.168\.(56\.1|1\.25):\d+/, 'localhost:5173');
+    }
+    
+    // Corregir puertos incorrectos
+    if (url.includes(':5174') || url.includes(':3000') || url.includes(':8080')) {
+      urlCorregida = urlCorregida.replace(/:\d+/, ':5173');
+    }
+    
+    if (url !== urlCorregida) {
+      console.log(`🔧 URL corregida: ${url} → ${urlCorregida}`);
+    }
+    
+    return urlCorregida;
+  };
 
   // Estados para UI
   const [loading, setLoading] = useState(false);
@@ -143,13 +209,14 @@ const LocalesComerciales: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Estados para documentos y observaciones - AGREGADOS
+  // Estados para documentos
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
-  const [showObservationModal, setShowObservationModal] = useState(false);
-  const [observationText, setObservationText] = useState('');
   const [currentDocuments, setCurrentDocuments] = useState<DocumentoNegocio>({});
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [documentError, setDocumentError] = useState<string>('');
+  
+  // Estado para locales del usuario
+  const [localesDelUsuario, setLocalesDelUsuario] = useState<BusinessAPI[]>([]);
 
   // Función unificada para verificar token
   const verificarToken = (): boolean => {
@@ -182,7 +249,12 @@ const LocalesComerciales: React.FC = () => {
   // Función para cargar documentos del negocio
   const cargarDocumentos = async (businessId: number) => {
     try {
-      if (!verificarToken()) return;
+      console.log('🚀 Iniciando carga de documentos para negocio:', businessId);
+      
+      if (!verificarToken()) {
+        console.log('❌ Token no válido, abortando carga de documentos');
+        return;
+      }
 
       setLoadingDocuments(true);
       setDocumentError('');
@@ -201,10 +273,9 @@ const LocalesComerciales: React.FC = () => {
       // Procesar cédula si existe
       if (negocio.cedulaFileUrl) {
         try {
-          // Si ya es una URL válida, usar directamente
           if (negocio.cedulaFileUrl.startsWith('http')) {
-            documents.cedula = negocio.cedulaFileUrl;
-            console.log('✅ URL de cédula disponible');
+            documents.cedula = corregirURL(negocio.cedulaFileUrl);
+            console.log('✅ URL de cédula procesada:', documents.cedula);
           }
         } catch (err) {
           console.warn('⚠️ Error procesando cédula:', err);
@@ -215,8 +286,8 @@ const LocalesComerciales: React.FC = () => {
       if (negocio.logoUrl) {
         try {
           if (negocio.logoUrl.startsWith('http')) {
-            documents.logo = negocio.logoUrl;
-            console.log('✅ URL de logo disponible');
+            documents.logo = corregirURL(negocio.logoUrl);
+            console.log('✅ URL de logo procesada:', documents.logo);
           }
         } catch (err) {
           console.warn('⚠️ Error procesando logo:', err);
@@ -227,8 +298,8 @@ const LocalesComerciales: React.FC = () => {
       if (negocio.signatureUrl) {
         try {
           if (negocio.signatureUrl.startsWith('http')) {
-            documents.signature = negocio.signatureUrl;
-            console.log('✅ URL de firma disponible');
+            documents.signature = corregirURL(negocio.signatureUrl);
+            console.log('✅ URL de firma procesada:', documents.signature);
           }
         } catch (err) {
           console.warn('⚠️ Error procesando firma:', err);
@@ -242,6 +313,9 @@ const LocalesComerciales: React.FC = () => {
       if (!hasDocuments) {
         setDocumentError('No se encontraron documentos para este negocio.');
       }
+      
+      console.log('📋 Documentos cargados:', documents);
+      console.log('✅ Carga de documentos completada');
 
     } catch (err) {
       console.error('💥 Error cargando documentos:', err);
@@ -251,89 +325,38 @@ const LocalesComerciales: React.FC = () => {
     }
   };
 
-  // Función para abrir ventana de documentos
+  // Función para abrir ventana de locales del usuario
   const abrirDocumentos = async (negocio: BusinessAPI) => {
-    setSelectedNegocio(negocio);
-    setShowDocumentsModal(true);
-    await cargarDocumentos(negocio.id);
-  };
-
-  // Función para manejar rechazo con observación
-  const iniciarRechazo = (negocio: BusinessAPI) => {
-    setSelectedNegocio(negocio);
-    setObservationText('');
-    setShowObservationModal(true);
-  };
-
-  // Función para enviar rechazo con observación
-  const enviarRechazo = async () => {
-    if (!selectedNegocio) return;
-
-    if (!observationText.trim()) {
-      alert('Por favor, ingrese una observación para el rechazo.');
-      return;
-    }
-
+    console.log('👤 Abriendo locales del usuario:', negocio.user.name);
     try {
-      if (!verificarToken()) return;
-
-      setLoading(true);
-      console.log('❌ Rechazando negocio con observación:', {
-        negocioId: selectedNegocio.id,
-        observacion: observationText.trim()
-      });
-
-      // Rechazar el negocio
-      const response = await apiService.request<{ message: string }>(`/business/reject/${selectedNegocio.id}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          observacion: observationText.trim(),
-          timestamp: new Date().toISOString()
-        })
-      });
-
-      console.log('📡 Respuesta de rechazo:', response);
-
-      if (response.success) {
-        console.log('✅ Negocio rechazado exitosamente');
-
-        // Cerrar modal de observación
-        setShowObservationModal(false);
-        setObservationText('');
-        setSelectedNegocio(null);
-
-        // Recargar negocios
-        await loadNegocios();
-        setTimeout(() => filtrarNegocios(), 100);
-
-        alert('Mensaje enviado. El negocio ha sido rechazado con la observación correspondiente.');
-
-      } else {
-        console.error('❌ Error al rechazar:', response.error);
-        if (response.status === 401) {
-          setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
-          apiService.clearToken();
-        } else if (response.status === 403) {
-          alert('No tiene permisos para rechazar negocios');
-        } else if (response.status === 404) {
-          alert('Negocio no encontrado o endpoint no disponible');
-        } else {
-          alert(response.error || 'Error al rechazar negocio');
-        }
-      }
-    } catch (err) {
-      console.error('💥 Error de conexión al rechazar negocio:', err);
-      alert('Error de conexión al rechazar negocio');
-    } finally {
-      setLoading(false);
+      // Buscar todos los negocios del mismo usuario
+      const localesDelUsuario = negocios.filter(n => n.user.id === negocio.user.id);
+      console.log('🏪 Locales encontrados del usuario:', localesDelUsuario.length);
+      
+      setLocalesDelUsuario(localesDelUsuario);
+      setSelectedNegocio(negocio);
+      setShowDocumentsModal(true);
+      console.log('✅ Modal de locales del usuario abierto correctamente');
+    } catch (error) {
+      console.error('❌ Error al abrir locales del usuario:', error);
+      alert('Error al abrir los locales del usuario');
     }
   };
+
+
 
   // Cargar negocios desde la API
   const loadNegocios = async (page: number = currentPage, size: number = pageSize) => {
     try {
       setLoading(true);
       setError('');
+
+      // Validar que page no sea negativo
+      const validPage = Math.max(0, page);
+      if (page !== validPage) {
+        console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+        setCurrentPageSafe(validPage);
+      }
 
       console.log('🚀 Iniciando carga de negocios...');
 
@@ -342,11 +365,11 @@ const LocalesComerciales: React.FC = () => {
         return;
       }
 
-      console.log('📊 Parámetros de consulta:', { page, size, searchTerm });
+      console.log('📊 Parámetros de consulta:', { page: validPage, size, searchTerm });
 
       // Usar endpoint específico para listar negocios públicos
       const params = new URLSearchParams({
-        page: page.toString(),
+        page: validPage.toString(),
         size: size.toString(),
       });
 
@@ -376,9 +399,13 @@ const LocalesComerciales: React.FC = () => {
         console.log('📋 Negocios después del filtrado:', negociosLimpios.length);
 
         setNegocios(negociosLimpios);
-        setTotalPages(response.data.data.totalPages);
-        setTotalElements(response.data.data.totalElements);
-        setCurrentPage(response.data.data.page - 1); // La API devuelve page base 1, convertir a base 0
+        // Calcular paginación basada en usuarios, no en negocios
+        const totalUsuarios = agruparNegociosPorUsuario(negociosLimpios).length;
+        const totalPaginasUsuarios = Math.ceil(totalUsuarios / pageSize);
+        setTotalPages(totalPaginasUsuarios);
+        setTotalElements(totalUsuarios);
+        // Resetear a la primera página cuando se cargan nuevos datos
+        setCurrentPageSafe(0);
 
         // Aplicar filtros después de cargar los negocios
         setTimeout(() => filtrarNegocios(), 0);
@@ -426,9 +453,9 @@ const LocalesComerciales: React.FC = () => {
 
   // Calcular estadísticas
   const calculateStats = (negociosList: BusinessAPI[], total: number) => {
-    const pendientes = negociosList.filter(n => n.validationStatus === 'PENDING').length;
-    const aprobados = negociosList.filter(n => n.validationStatus === 'APPROVED').length;
-    const rechazados = negociosList.filter(n => n.validationStatus === 'REJECTED').length;
+    const pendientes = negociosList.filter(n => validarEstadoNegocio(n.validationStatus) === 'PENDING').length;
+    const aprobados = negociosList.filter(n => validarEstadoNegocio(n.validationStatus) === 'APPROVED').length;
+    const rechazados = negociosList.filter(n => validarEstadoNegocio(n.validationStatus) === 'REJECTED').length;
 
     setStats({
       totalNegocios: total,
@@ -438,45 +465,7 @@ const LocalesComerciales: React.FC = () => {
     });
   };
 
-  // Aprobar negocio
-  const aprobarNegocio = async (businessId: number) => {
-    try {
-      if (!verificarToken()) return;
 
-      setLoading(true);
-      console.log('✅ Aprobando negocio:', businessId);
-
-      const response = await apiService.request<BusinessAPI>(`/business/approve/${businessId}`, {
-        method: 'POST'
-      });
-
-      console.log('📡 Respuesta de aprobación:', response);
-
-      if (response.success) {
-        console.log('🎉 Negocio aprobado exitosamente');
-        await loadNegocios();
-        setTimeout(() => filtrarNegocios(), 100);
-        alert('Negocio aprobado exitosamente');
-      } else {
-        console.error('❌ Error al aprobar:', response.error);
-        if (response.status === 401) {
-          setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
-          apiService.clearToken();
-        } else if (response.status === 403) {
-          alert('No tiene permisos para aprobar negocios');
-        } else if (response.status === 404) {
-          alert('Negocio no encontrado o endpoint no disponible');
-        } else {
-          alert(response.error || 'Error al aprobar negocio');
-        }
-      }
-    } catch (err) {
-      console.error('💥 Error de conexión al aprobar negocio:', err);
-      alert('Error de conexión al aprobar negocio');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Crear negocio
   const crearNegocio = async (e: React.FormEvent) => {
@@ -562,7 +551,7 @@ const LocalesComerciales: React.FC = () => {
   // Cambiar página
   const changePage = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
+      setCurrentPageSafe(newPage);
       loadNegocios(newPage, pageSize);
     }
   };
@@ -570,7 +559,7 @@ const LocalesComerciales: React.FC = () => {
   // Cambiar tamaño de página
   const changePageSize = (newSize: number) => {
     setPageSize(newSize);
-    setCurrentPage(0);
+    setCurrentPageSafe(0);
     loadNegocios(0, newSize);
   };
 
@@ -586,22 +575,31 @@ const LocalesComerciales: React.FC = () => {
         'inactivo': 'REJECTED'
       };
       const apiStatus = statusMap[filterStatus] || filterStatus;
-      negociosFiltrados = negociosFiltrados.filter(negocio =>
-        negocio.validationStatus === apiStatus
-      );
+      negociosFiltrados = negociosFiltrados.filter(negocio => {
+        if (filterStatus === 'activo') {
+          // Para "Aprobado" incluir tanto APPROVED como VALIDATED
+          return validarEstadoNegocio(negocio.validationStatus) === 'APPROVED';
+        }
+        return validarEstadoNegocio(negocio.validationStatus) === validarEstadoNegocio(apiStatus);
+      });
     }
 
-    // Filtrar por búsqueda
+    // Filtrar por búsqueda (ahora busca en información del usuario también)
     if (searchTerm.trim() !== '') {
       const terminoBusqueda = searchTerm.toLowerCase();
       negociosFiltrados = negociosFiltrados.filter(negocio =>
+        // Búsqueda en información del negocio
         (negocio.commercialName && negocio.commercialName.toLowerCase().includes(terminoBusqueda)) ||
         (negocio.representativeName && negocio.representativeName.toLowerCase().includes(terminoBusqueda)) ||
         (negocio.email && negocio.email.toLowerCase().includes(terminoBusqueda)) ||
         (negocio.cedulaOrRuc && negocio.cedulaOrRuc.toLowerCase().includes(terminoBusqueda)) ||
         (negocio.phone && negocio.phone.toLowerCase().includes(terminoBusqueda)) ||
         (negocio.parishCommunitySector && negocio.parishCommunitySector.toLowerCase().includes(terminoBusqueda)) ||
-        (negocio.category && negocio.category.name && negocio.category.name.toLowerCase().includes(terminoBusqueda))
+        (negocio.category && negocio.category.name && negocio.category.name.toLowerCase().includes(terminoBusqueda)) ||
+        // Búsqueda en información del usuario
+        (negocio.user.name && negocio.user.name.toLowerCase().includes(terminoBusqueda)) ||
+        (negocio.user.email && negocio.user.email.toLowerCase().includes(terminoBusqueda)) ||
+        (negocio.user.identification && negocio.user.identification.toLowerCase().includes(terminoBusqueda))
       );
     }
 
@@ -610,7 +608,7 @@ const LocalesComerciales: React.FC = () => {
 
   const handleFilterChange = (newFilter: string) => {
     setFilterStatus(newFilter);
-    setCurrentPage(0);
+    setCurrentPageSafe(0);
     setTimeout(() => filtrarNegocios(), 0);
   };
 
@@ -714,11 +712,11 @@ const LocalesComerciales: React.FC = () => {
     <div className="locales-container">
       <div className="locales-header">
         <h1 className="locales-title">
-          <Store className="w-8 h-8 text-red-600 mr-3" />
-          Locales Comerciales
+          <User className="w-8 h-8 text-red-600 mr-3" />
+          Usuarios con Locales Comerciales
         </h1>
         <p className="locales-subtitle">
-          Registro y gestión de establecimientos comerciales
+          Gestión de usuarios y sus locales comerciales asociados
         </p>
       </div>
 
@@ -763,11 +761,11 @@ const LocalesComerciales: React.FC = () => {
         <div className="locales-stat-card">
           <div className="locales-stat-content">
             <div>
-              <p className="locales-stat-text-sm">Total Locales</p>
-              <p className="locales-stat-text-lg">{stats.totalNegocios}</p>
+              <p className="locales-stat-text-sm">Total Usuarios</p>
+              <p className="locales-stat-text-lg">{agruparNegociosPorUsuario(negocios).length}</p>
             </div>
             <div className="locales-stat-icon-container bg-blue-100">
-              <Store className="locales-stat-icon text-blue-600" />
+              <User className="locales-stat-icon text-blue-600" />
             </div>
           </div>
         </div>
@@ -804,6 +802,7 @@ const LocalesComerciales: React.FC = () => {
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Filtros y búsqueda */}
@@ -813,12 +812,12 @@ const LocalesComerciales: React.FC = () => {
             <Search className="locales-search-icon" />
             <input
               type="text"
-              placeholder="Buscar por nombre comercial, representante, email, cédula/RUC..."
+              placeholder="Buscar por nombre de usuario, email, cédula..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  setCurrentPage(0);
+                  setCurrentPageSafe(0);
                   filtrarNegocios();
                 }
               }}
@@ -839,7 +838,7 @@ const LocalesComerciales: React.FC = () => {
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="activo">Aprobado</option>
-                <option value="inactivo">Rechazado</option>
+
               </select>
             </div>
 
@@ -893,7 +892,7 @@ const LocalesComerciales: React.FC = () => {
       {/* Indicador de negocios filtrados */}
       {!loading && negociosFiltrados.length > 0 && (
         <div className="mb-4 text-sm text-gray-600">
-          Mostrando {negociosFiltrados.length} de {negocios.length} negocios
+                          Mostrando {obtenerUsuariosPaginados(negociosFiltrados, currentPage, pageSize).length} de {agruparNegociosPorUsuario(negociosFiltrados).length} usuarios
           {filterStatus !== 'all' && ` (filtrado por: ${formatEstadoText(filterStatus === 'activo' ? 'APPROVED' : filterStatus === 'pendiente' ? 'PENDING' : 'REJECTED')})`}
           {searchTerm && ` (búsqueda: "${searchTerm}")`}
         </div>
@@ -928,194 +927,40 @@ const LocalesComerciales: React.FC = () => {
           </div>
         )}
 
-        {!loading && negociosFiltrados.map((negocio) => (
-          <div key={negocio.id} className="locales-card">
+        {!loading && obtenerUsuariosPaginados(negociosFiltrados, currentPage, pageSize).map((grupoUsuario) => (
+          <div key={grupoUsuario.userId} className="locales-card">
             <div className="locales-card-content">
               <div className="locales-card-main">
                 <div className="locales-card-header">
                   <div className="locales-card-icon">
-                    <Store />
+                    <User />
                   </div>
                   <div className="locales-card-info">
                     <div className="locales-card-title">
-                      <h3 className="locales-card-name">{negocio.commercialName || 'Sin nombre comercial'}</h3>
-                      <span className={`locales-card-badge ${getCategoryColor(negocio.category?.name)}`}>
-                        {negocio.category?.name || 'Sin categoría'}
+                      <h3 className="locales-card-name">{grupoUsuario.user.name || 'Usuario sin nombre'}</h3>
+                      <span className="locales-card-badge bg-blue-100 text-blue-800">
+                        {grupoUsuario.negocios.length} {grupoUsuario.negocios.length === 1 ? 'Local' : 'Locales'}
                       </span>
-                      <span className={`locales-card-badge ${getStatusColor(negocio.validationStatus)}`}>
-                        {formatEstadoText(negocio.validationStatus)}
+                      <span className="locales-card-badge bg-gray-100 text-gray-800">
+                        Cédula: {grupoUsuario.user.identification || 'No especificado'}
                       </span>
                     </div>
-                    <p className="locales-card-license">RUC/Cédula: {negocio.cedulaOrRuc || 'No especificado'}</p>
-                  </div>
-                </div>
-
-                <div className="locales-details-grid">
-                  <div className="locales-detail-item">
-                    <User className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Representante</p>
-                      <p className="locales-detail-value">{negocio.representativeName || 'No especificado'}</p>
-                    </div>
-                  </div>
-                  <div className="locales-detail-item">
-                    <MapPin className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Sector</p>
-                      <p className="locales-detail-value">{negocio.parishCommunitySector || 'No especificado'}</p>
-                    </div>
-                  </div>
-                  <div className="locales-detail-item">
-                    <Phone className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Teléfono</p>
-                      <p className="locales-detail-value">{negocio.phone || 'No especificado'}</p>
-                    </div>
-                  </div>
-                  <div className="locales-detail-item">
-                    <Mail className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Email</p>
-                      <p className="locales-detail-value">{negocio.email || 'No especificado'}</p>
-                    </div>
-                  </div>
-                  <div className="locales-detail-item">
-                    <Building className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Lugar de venta</p>
-                      <p className="locales-detail-value">{formatSalePlace(negocio.salePlace)}</p>
-                    </div>
-                  </div>
-                  <div className="locales-detail-item">
-                    <Calendar className="locales-detail-icon" />
-                    <div>
-                      <p className="locales-detail-label">Delivery</p>
-                      <p className="locales-detail-value">{formatDeliveryService(negocio.deliveryService)}</p>
-                    </div>
+                    <p className="locales-card-license">Email: {grupoUsuario.user.email || 'No especificado'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="locales-card-actions">
-                {negocio.validationStatus === 'PENDING' ? (
-                  <>
-                    <button
-                      onClick={() => abrirDocumentos(negocio)}
-                      className="locales-action-button bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded flex items-center gap-2"
-                      disabled={loading || !apiService.isAuthenticated()}
-                      title="Abrir documentos del negocio"
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span>Abrir</span>
-                    </button>
-                    <button
-                      onClick={() => aprobarNegocio(negocio.id)}
-                      className="locales-action-button bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded flex items-center gap-2"
-                      disabled={loading || !apiService.isAuthenticated()}
-                      title="Aprobar negocio"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Aprobar</span>
-                    </button>
-                    <button
-                      onClick={() => iniciarRechazo(negocio)}
-                      className="locales-action-button bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded flex items-center gap-2"
-                      disabled={loading || !apiService.isAuthenticated()}
-                      title="Rechazar negocio"
-                    >
-                      <X className="w-4 h-4" />
-                      <span>Rechazar</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => {
-                        setSelectedNegocio(negocio);
-                        setShowViewModal(true);
-                      }}
-                      className="locales-action-button locales-view-button"
-                      title="Ver detalles del negocio"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedNegocio(negocio);
-                        setNewNegocio({
-                          commercialName: negocio.commercialName || '',
-                          representativeName: negocio.representativeName || '',
-                          cedulaOrRuc: negocio.cedulaOrRuc || '',
-                          phone: negocio.phone || '',
-                          email: negocio.email || '',
-                          parishCommunitySector: negocio.parishCommunitySector || '',
-                          facebook: negocio.facebook || '',
-                          instagram: negocio.instagram || '',
-                          tiktok: negocio.tiktok || '',
-                          website: negocio.website || '',
-                          description: negocio.description || '',
-                          productsServices: negocio.productsServices || '',
-                          acceptsWhatsappOrders: negocio.acceptsWhatsappOrders || false,
-                          deliveryService: negocio.deliveryService || 'BAJO_PEDIDO',
-                          salePlace: negocio.salePlace || 'LOCAL',
-                          categoryId: negocio.category?.id || 1
-                        });
-                        setShowEditModal(true);
-                      }}
-                      className="locales-action-button locales-edit-button"
-                      title="Editar negocio"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!window.confirm('¿Está seguro que desea eliminar este negocio? Esta acción no se puede deshacer.')) {
-                          return;
-                        }
-
-                        try {
-                          if (!verificarToken()) return;
-
-                          setLoading(true);
-                          console.log('🗑️ Eliminando negocio:', negocio.id);
-
-                          const response = await apiService.request<{ message: string }>(`/business/${negocio.id}`, {
-                            method: 'DELETE'
-                          });
-
-                          console.log('📡 Respuesta de eliminación:', response);
-
-                          if (response.success) {
-                            console.log('🎉 Negocio eliminado exitosamente');
-                            await loadNegocios();
-                            alert('Negocio eliminado exitosamente');
-                          } else {
-                            console.error('❌ Error al eliminar:', response.error);
-                            if (response.status === 401) {
-                              setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
-                              apiService.clearToken();
-                            } else if (response.status === 403) {
-                              alert('No tiene permisos para eliminar negocios');
-                            } else if (response.status === 404) {
-                              alert('Negocio no encontrado');
-                            } else {
-                              alert(response.error || 'Error al eliminar negocio');
-                            }
-                          }
-                        } catch (err) {
-                          console.error('💥 Error de conexión al eliminar negocio:', err);
-                          alert('Error de conexión al eliminar negocio');
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
-                      className="locales-action-button locales-delete-button"
-                      title="Eliminar negocio"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
+              {/* Botón para ver locales del usuario */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => abrirDocumentos(grupoUsuario.negocios[0])}
+                  className="locales-action-button bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
+                  disabled={loading || !apiService.isAuthenticated()}
+                  title="Ver locales del usuario"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Abrir</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1177,7 +1022,7 @@ const LocalesComerciales: React.FC = () => {
                 </span>
                 {' '}de{' '}
                 <span className="font-medium">{totalElements}</span>
-                {' '}negocios
+                {' '}usuarios
               </p>
             </div>
 
@@ -1412,289 +1257,109 @@ const LocalesComerciales: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para ver documentos */}
+      {/* Modal para ver locales del usuario */}
       {showDocumentsModal && selectedNegocio && (
-        <div className="locales-modal-overlay">
-          <div className="locales-modal max-w-4xl">
+        <div className="locales-modal-overlay" onClick={() => console.log('🔍 Modal overlay clickeado')}>
+          <div className="locales-modal max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            {console.log('🎯 Renderizando modal de locales del usuario:', selectedNegocio?.user.name)}
             <div className="flex justify-between items-center mb-6">
               <h2 className="locales-modal-title">
-                Documentos de {selectedNegocio.commercialName}
+                Locales de {selectedNegocio?.user.name || 'Usuario'}
               </h2>
               <button
                 onClick={() => {
+                  console.log('🔒 Cerrando modal de locales del usuario');
                   setShowDocumentsModal(false);
                   setSelectedNegocio(null);
-                  setCurrentDocuments({});
+                  setLocalesDelUsuario([]);
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <X className="w-6 h-6" />
+                <span className="text-2xl font-bold">×</span>
               </button>
             </div>
-            {/* Resumen del negocio (encima de los documentos) */}
-{!loadingDocuments && (
-  <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-    <div className="flex items-start gap-4">
-      <div className="locales-card-icon">
-        <Store />
-      </div>
-
-      <div className="flex-1">
-        <div className="flex flex-wrap items-center gap-2 mb-1">
-          <h3 className="text-lg font-semibold">
-            {selectedNegocio.commercialName || 'Sin nombre comercial'}
-          </h3>
-
-          <span
-            className={`locales-card-badge ${getCategoryColor(selectedNegocio.category?.name)}`}
-            title="Categoría"
-          >
-            {selectedNegocio.category?.name || 'Sin categoría'}
-          </span>
-
-          <span
-            className={`locales-card-badge ${getStatusColor(selectedNegocio.validationStatus)}`}
-            title="Estado"
-          >
-            {formatEstadoText(selectedNegocio.validationStatus)}
-          </span>
-        </div>
-
-        <p className="text-sm text-gray-600">
-          RUC/Cédula: {selectedNegocio.cedulaOrRuc || 'No especificado'}
-        </p>
-
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="flex items-start gap-2">
-            <User className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Representante</p>
-              <p className="font-medium text-gray-900">
-                {selectedNegocio.representativeName || 'No especificado'}
+            
+            {/* Información básica del usuario */}
+            <div className="mb-6 p-4 border rounded-lg bg-blue-50">
+              <h3 className="text-lg font-semibold mb-2 text-blue-900">
+                {selectedNegocio?.user.name || 'Usuario sin nombre'}
+              </h3>
+              <p className="text-sm text-blue-700 mb-2">
+                Cédula: {selectedNegocio?.user.identification || 'No especificado'}
+              </p>
+              <p className="text-sm text-blue-700">
+                Email: {selectedNegocio?.user.email || 'No especificado'}
+              </p>
+              <p className="text-sm text-blue-700 font-medium">
+                Total de locales: {localesDelUsuario.length}
               </p>
             </div>
-          </div>
 
-          <div className="flex items-start gap-2">
-            <MapPin className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Sector/Parroquia</p>
-              <p className="font-medium text-gray-900">
-                {selectedNegocio.parishCommunitySector || 'No especificado'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Phone className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Teléfono</p>
-              <p className="font-medium text-gray-900">
-                {selectedNegocio.phone || 'No especificado'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Mail className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Email</p>
-              <p className="font-medium text-gray-900">
-                {selectedNegocio.email || 'No especificado'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Building className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Lugar de venta</p>
-              <p className="font-medium text-gray-900">
-                {formatSalePlace(selectedNegocio.salePlace)}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2">
-            <Calendar className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-gray-500">Delivery</p>
-              <p className="font-medium text-gray-900">
-                {formatDeliveryService(selectedNegocio.deliveryService)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-
-            {loadingDocuments ? (
-              <div className="flex justify-center items-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-gray-600">Cargando documentos...</span>
-              </div>
-            ) : documentError ? (
-              <div className="text-center py-8">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">{documentError}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Cédula */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <FileText className="w-5 h-5 mr-2" />
-                    Cédula/RUC
-                  </h3>
-                  {currentDocuments.cedula ? (
-                    <div className="space-y-3">
-                      <img
-                        src={currentDocuments.cedula}
-                        alt="Cédula/RUC"
-                        className="w-full h-40 object-cover rounded border"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          const nextElement = target.nextElementSibling as HTMLElement;
-                          target.style.display = 'none';
-                          if (nextElement) nextElement.style.display = 'block';
-                        }}
-                      />
-                      <div style={{ display: 'none' }} className="text-center py-8 text-gray-500">
-                        Error al cargar imagen
+            {/* Lista de locales del usuario */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-medium text-gray-800 border-b pb-2">
+                Locales asociados:
+              </h4>
+              
+              {localesDelUsuario.length > 0 ? (
+                localesDelUsuario.map((negocio) => (
+                  <div key={negocio.id} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h5 className="font-semibold text-gray-900 mb-2 text-lg">
+                          {negocio.commercialName || 'Sin nombre comercial'}
+                        </h5>
+                        <p className="text-gray-600 mb-3 leading-relaxed">
+                          {negocio.description || 'Sin descripción disponible'}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCategoryColor(negocio.category?.name)}`}>
+                            {negocio.category?.name || 'Sin categoría'}
+                          </span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(negocio.validationStatus)}`}>
+                            {formatEstadoText(negocio.validationStatus)}
+                          </span>
+                        </div>
                       </div>
-                      <a
-                        href={currentDocuments.cedula}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p>No disponible</p>
-                    </div>
-                  )}
-                </div>
+                      
+                      {/* Botones de acción para cada local */}
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => {
+                            setSelectedNegocio(negocio);
+                            setShowViewModal(true);
+                            setShowDocumentsModal(false);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex items-center gap-2"
+                          title="Ver detalles completos del local"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>Ver</span>
+                        </button>
+                        
 
-                {/* Logo */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Building className="w-5 h-5 mr-2" />
-                    Logo
-                  </h3>
-                  {currentDocuments.logo ? (
-                    <div className="space-y-3">
-                      <img
-                        src={currentDocuments.logo}
-                        alt="Logo del negocio"
-                        className="w-full h-40 object-cover rounded border"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          const nextElement = target.nextElementSibling as HTMLElement;
-                          target.style.display = 'none';
-                          if (nextElement) nextElement.style.display = 'block';
-                        }}
-                      />
-                      <div style={{ display: 'none' }} className="text-center py-8 text-gray-500">
-                        Error al cargar imagen
                       </div>
-                      <a
-                        href={currentDocuments.logo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar
-                      </a>
                     </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Building className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p>No disponible</p>
-                    </div>
-                  )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <Store className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No se encontraron locales para este usuario</p>
                 </div>
+              )}
+            </div>
 
-                {/* Firma */}
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                    <Edit className="w-5 h-5 mr-2" />
-                    Firma
-                  </h3>
-                  {currentDocuments.signature ? (
-                    <div className="space-y-3">
-                      <img
-                        src={currentDocuments.signature}
-                        alt="Firma"
-                        className="w-full h-40 object-cover rounded border"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          const nextElement = target.nextElementSibling as HTMLElement;
-                          target.style.display = 'none';
-                          if (nextElement) nextElement.style.display = 'block';
-                        }}
-                      />
-                      <div style={{ display: 'none' }} className="text-center py-8 text-gray-500">
-                        Error al cargar imagen
-                      </div>
-                      <a
-                        href={currentDocuments.signature}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center w-full bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <Edit className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p>No disponible</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Acciones del modal de documentos */}
-            <div className="flex justify-between items-center mt-6 pt-4 border-t">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => aprobarNegocio(selectedNegocio.id)}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors flex items-center gap-2"
-                  disabled={loading || !apiService.isAuthenticated()}
-                >
-                  <Check className="w-4 h-4" />
-                  Aprobar
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDocumentsModal(false);
-                    iniciarRechazo(selectedNegocio);
-                  }}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors flex items-center gap-2"
-                  disabled={loading || !apiService.isAuthenticated()}
-                >
-                  <X className="w-4 h-4" />
-                  Rechazar
-                </button>
-              </div>
+            {/* Acciones del modal */}
+            <div className="flex justify-end items-center mt-6 pt-4 border-t">
               <button
                 onClick={() => {
                   setShowDocumentsModal(false);
                   setSelectedNegocio(null);
-                  setCurrentDocuments({});
+                  setLocalesDelUsuario([]);
                 }}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
               >
                 Cerrar
               </button>
@@ -1703,62 +1368,7 @@ const LocalesComerciales: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para observación de rechazo */}
-      {showObservationModal && selectedNegocio && (
-        <div className="locales-modal-overlay">
-          <div className="locales-modal max-w-md">
-            <h2 className="locales-modal-title">
-              Rechazar Negocio
-            </h2>
-            <div className="mb-4">
-              <p className="text-gray-600 mb-2">
-                Está a punto de rechazar el negocio: <strong>{selectedNegocio.commercialName}</strong>
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
-                Por favor, proporcione una observación detallada sobre el motivo del rechazo:
-              </p>
-              <textarea
-                value={observationText}
-                onChange={(e) => setObservationText(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                rows={4}
-                placeholder="Escriba aquí la observación para el rechazo del negocio..."
-                disabled={loading}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowObservationModal(false);
-                  setObservationText('');
-                  setSelectedNegocio(null);
-                }}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
-                disabled={loading}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={enviarRechazo}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors flex items-center gap-2"
-                disabled={loading || !observationText.trim()}
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Enviar Rechazo
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Modal para ver detalles */}
       {showViewModal && selectedNegocio && (
@@ -1775,7 +1385,7 @@ const LocalesComerciales: React.FC = () => {
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <X className="w-6 h-6" />
+                <span className="text-2xl font-bold">×</span>
               </button>
             </div>
 
@@ -1848,23 +1458,17 @@ const LocalesComerciales: React.FC = () => {
                     <p className="mt-1 text-sm text-gray-900">{selectedNegocio.description}</p>
                   </div>
                 )}
-                {selectedNegocio.productsServices && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Productos/Servicios</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedNegocio.productsServices}</p>
-                  </div>
-                )}
-
-                {/* Redes sociales */}
+                
+                {/* Redes sociales como campo separado - SIEMPRE visible */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Redes Sociales</label>
-                  <div className="flex flex-wrap gap-2">
+                  <label className="block text-sm font-medium text-gray-700">Redes Sociales</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
                     {selectedNegocio.facebook && (
                       <a
                         href={selectedNegocio.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
+                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hover:bg-blue-200 transition-colors"
                       >
                         Facebook
                       </a>
@@ -1874,7 +1478,7 @@ const LocalesComerciales: React.FC = () => {
                         href={selectedNegocio.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs"
+                        className="bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs hover:bg-pink-200 transition-colors"
                       >
                         Instagram
                       </a>
@@ -1884,7 +1488,7 @@ const LocalesComerciales: React.FC = () => {
                         href={selectedNegocio.tiktok}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs"
+                        className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs hover:bg-gray-200 transition-colors"
                       >
                         TikTok
                       </a>
@@ -1894,7 +1498,7 @@ const LocalesComerciales: React.FC = () => {
                         href={selectedNegocio.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs"
+                        className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hover:bg-green-200 transition-colors"
                       >
                         Sitio Web
                       </a>
@@ -1904,10 +1508,105 @@ const LocalesComerciales: React.FC = () => {
                     )}
                   </div>
                 </div>
+                
+                {selectedNegocio.productsServices && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Productos/Servicios</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedNegocio.productsServices}</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex justify-end mt-6 pt-4 border-t">
+            <div className="flex justify-between items-center mt-6 pt-4 border-t">
+              {/* Botones de acción para locales pendientes */}
+              {selectedNegocio.validationStatus === 'PENDING' && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Está seguro que desea aprobar este local?')) {
+                        return;
+                      }
+                      try {
+                        if (!verificarToken()) return;
+                        
+                        setLoading(true);
+                        console.log('✅ Aprobando local:', selectedNegocio.id);
+                        
+                        const response = await apiService.request<{ message: string }>(`/business/${selectedNegocio.id}/approve`, {
+                          method: 'PUT'
+                        });
+                        
+                        if (response.success) {
+                          console.log('🎉 Local aprobado exitosamente');
+                          alert('Local aprobado exitosamente');
+                          // Recargar datos y cerrar modal
+                          await loadNegocios();
+                          setShowViewModal(false);
+                          setSelectedNegocio(null);
+                        } else {
+                          console.error('❌ Error al aprobar:', response.error);
+                          alert('Error al aprobar local: ' + response.error);
+                        }
+                      } catch (err) {
+                        console.error('💥 Error de conexión al aprobar:', err);
+                        alert('Error de conexión al aprobar local');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
+                    title="Aprobar local"
+                    disabled={loading}
+                  >
+                    <span className="text-lg">✓</span>
+                    <span>Aprobar</span>
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('¿Está seguro que desea rechazar este local?')) {
+                        return;
+                      }
+                      try {
+                        if (!verificarToken()) return;
+                        
+                        setLoading(true);
+                        console.log('❌ Rechazando local:', selectedNegocio.id);
+                        
+                        const response = await apiService.request<{ message: string }>(`/business/${selectedNegocio.id}/reject`, {
+                          method: 'PUT'
+                        });
+                        
+                        if (response.success) {
+                          console.log('🎉 Local rechazado exitosamente');
+                          alert('Local rechazado exitosamente');
+                          // Recargar datos y cerrar modal
+                          await loadNegocios();
+                          setShowViewModal(false);
+                          setSelectedNegocio(null);
+                        } else {
+                          console.error('❌ Error al rechazar:', response.error);
+                          alert('Error al rechazar local: ' + response.error);
+                        }
+                      } catch (err) {
+                        console.error('💥 Error de conexión al rechazar:', err);
+                        alert('Error de conexión al rechazar local');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
+                    title="Rechazar local"
+                    disabled={loading}
+                  >
+                    <span className="text-lg">✗</span>
+                    <span>Rechazar</span>
+                  </button>
+                </div>
+              )}
+              
+              {/* Botón de cerrar */}
               <button
                 onClick={() => {
                   setShowViewModal(false);

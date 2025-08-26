@@ -84,7 +84,6 @@ export interface ProyectoStats {
   totalProyectos: number;
   pendientes: number;
   aprobados: number;
-  rechazados: number;
 }
 
 export interface PaginatedResponse<T> {

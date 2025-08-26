@@ -478,7 +478,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             Desarrollador Ing. Verdesoto V. Ruben Ismael,  
                           Ing. Nathaly licethe Zambrano, 
                           ing. Fernando Suarez, 
-                          ing. Israel, 
+                          Ing. Israel López, 
           </p>
         </div>
       </div>
