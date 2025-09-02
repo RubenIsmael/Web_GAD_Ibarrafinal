@@ -84,7 +84,7 @@ const Home: React.FC = () => {
               <div className="home-logo-circle">
                 <div className="home-logo-gradient"></div>
                 <img
-                  src="https://seeklogo.com/images/I/ibarra-logo-50CAF2B8D2-seeklogo.com.png"
+                  src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpuHktR3HBUhWPGgwb1c-jfrpWXEfuGe5dOA&s"
                   alt="Escudo GAD Ibarra"
                   className="home-logo-img"
                 />

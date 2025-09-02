@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Home from './Home';
 import Requerimientos from './Requerimientos';
-import Mensajeria from './Mensajeria';
-import Proyectos from './Proyectos'; // Mantener el componente original
+import Promociones from './Promociones';
+import Proyectos from './Proyectos'; 
 import Ferias from './Ferias';
 import LocalesComerciales from './LocalesComerciales';
 import '../styles/dashboard.css'
@@ -22,8 +22,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         return <Home />;
       case 'requerimientos':
         return <Requerimientos />;
-      case 'mensajeria':
-        return <Mensajeria />;
+     case 'promociones':
+        return <Promociones />;
       case 'comerciantes': 
         return <Proyectos />; 
       case 'ferias':
@@ -52,7 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           <div className="layout-header-container">
             <div className="layout-brand">
               <img
-                src="https://www.logotypes101.com/logos/210/0387163D0C008C869E59CA854A9A3088/ibarra.png"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpuHktR3HBUhWPGgwb1c-jfrpWXEfuGe5dOA&s"
                 alt="Escudo GAD Ibarra"
                 className="layout-logo"
               />

@@ -1,0 +1,687 @@
+/* styles/promociones.css */
+
+.promociones-container {
+    padding: 1.5rem;
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.promociones-header {
+    margin-bottom: 1.5rem;
+}
+
+.promociones-title {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.promociones-subtitle {
+    color: #4b5563;
+}
+
+/* Estadísticas */
+.promociones-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .promociones-stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.promociones-stat-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    padding: 1.5rem;
+}
+
+.promociones-stat-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.promociones-stat-text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #4b5563;
+}
+
+.promociones-stat-text-lg {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.promociones-stat-icon-container {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.promociones-stat-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+/* Filtros y búsqueda */
+.promociones-filters {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.promociones-filters-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+    .promociones-filters-container {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+    }
+}
+
+.promociones-search-container {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+}
+
+.promociones-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #6b7280;
+}
+
+.promociones-search-input {
+    width: 100%;
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.promociones-search-input:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.1);
+}
+
+.promociones-search-input:disabled {
+    background-color: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.promociones-filters-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+}
+
+.promociones-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.promociones-filter-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: #6b7280;
+}
+
+.promociones-filter-select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background-color: white;
+    transition: border-color 0.2s;
+}
+
+.promociones-filter-select:focus {
+    outline: none;
+    border-color: #ef4444;
+}
+
+.promociones-filter-select:disabled {
+    background-color: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.promociones-add-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.promociones-add-button:hover:not(:disabled) {
+    background-color: #dc2626;
+}
+
+.promociones-add-button:disabled {
+    background-color: #fca5a5;
+    cursor: not-allowed;
+}
+
+/* Lista de promociones */
+.promociones-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.promociones-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.promociones-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
+}
+
+.promociones-card-content {
+    padding: 1.5rem;
+}
+
+.promociones-card-main {
+    margin-bottom: 1rem;
+}
+
+.promociones-card-header {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.promociones-card-logo {
+    flex-shrink: 0;
+}
+
+.promociones-card-info {
+    flex: 1;
+}
+
+.promociones-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.promociones-card-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0;
+}
+
+.promociones-card-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.promociones-card-description {
+    color: #4b5563;
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+}
+
+.promociones-card-dates {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.promociones-card-image {
+    margin-bottom: 1rem;
+}
+
+.promociones-card-prices {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+}
+
+.promociones-card-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.promociones-action-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.promociones-action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Modales */
+.promociones-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(0 0 0 / 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.promociones-modal {
+    background-color: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    width: 100%;
+    max-width: 32rem;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.promociones-modal.max-w-4xl {
+    max-width: 56rem;
+}
+
+.promociones-modal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 1.5rem;
+}
+
+.promociones-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.promociones-form-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .promociones-form-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.promociones-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.promociones-form-group.locales-form-full-width {
+    grid-column: 1 / -1;
+}
+
+.promociones-form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.promociones-form-input,
+.promociones-form-select {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background-color: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.promociones-form-input:focus,
+.promociones-form-select:focus {
+    outline: none;
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.1);
+}
+
+.promociones-form-input:disabled,
+.promociones-form-select:disabled {
+    background-color: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+.promociones-form-input[type="textarea"] {
+    resize: vertical;
+    min-height: 6rem;
+}
+
+.promociones-modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.promociones-cancel-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.promociones-cancel-button:hover:not(:disabled) {
+    background-color: #4b5563;
+}
+
+.promociones-cancel-button:disabled {
+    background-color: #d1d5db;
+    cursor: not-allowed;
+}
+
+.promociones-submit-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.promociones-submit-button:hover:not(:disabled) {
+    background-color: #dc2626;
+}
+
+.promociones-submit-button:disabled {
+    background-color: #fca5a5;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .promociones-container {
+        padding: 1rem;
+    }
+    
+    .promociones-filters-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .promociones-card-actions {
+        flex-direction: column;
+    }
+    
+    .promociones-action-button {
+        justify-content: center;
+    }
+    
+    .promociones-modal {
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.promociones-card {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Estados de hover mejorados */
+.promociones-card:hover .promociones-card-name {
+    color: #ef4444;
+}
+
+.promociones-action-button:hover {
+    filter: brightness(1.1);
+}
+
+/* Estilos para precios */
+.promociones-card-prices {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border: 1px solid #fecaca;
+}
+
+/* Estilos para badges de estado */
+.promociones-card-badge.bg-green-100 {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.promociones-card-badge.bg-yellow-100 {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.promociones-card-badge.bg-blue-100 {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.promociones-card-badge.bg-gray-100 {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Estilos para imágenes */
+.promociones-card-image img {
+    transition: transform 0.2s;
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.promociones-card-image img:hover {
+    transform: scale(1.02);
+}
+
+/* Estilos para el logo */
+.promociones-card-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+/* Estilos para imágenes en el modal */
+.promociones-modal img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    border: 2px solid #e5e7eb;
+}
+
+/* Estilos para secciones del modal */
+.promociones-modal .bg-gray-50 {
+    transition: all 0.2s ease-in-out;
+}
+
+.promociones-modal .bg-gray-50:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para títulos de sección */
+.promociones-modal h3 {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+/* Estilos para badges de estado en el modal */
+.promociones-modal .bg-green-100 {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.promociones-modal .bg-yellow-100 {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.promociones-modal .bg-blue-100 {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.promociones-modal .bg-gray-100 {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Mejoras para las imágenes */
+.promociones-card-image {
+    position: relative;
+    overflow: hidden;
+}
+
+.promociones-card-image img {
+    display: block;
+}
+
+.promociones-card-logo {
+    position: relative;
+    overflow: hidden;
+}
+
+.promociones-card-logo img {
+    display: block;
+}
+
+/* Estilos para fallback de imágenes */
+.promociones-card-image .hidden,
+.promociones-card-logo .hidden {
+    display: none;
+}
+
+/* Responsive para imágenes */
+@media (max-width: 640px) {
+    .promociones-card-image img {
+        height: 32px;
+    }
+    
+    .promociones-card-logo img {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+/* Estilos para vista previa */
+.promociones-form-group img {
+    transition: transform 0.2s;
+}
+
+.promociones-form-group img:hover {
+    transform: scale(1.05);
+}
+
+/* Mejoras para imágenes con errores */
+.promociones-card-image img:not([src]),
+.promociones-card-logo img:not([src]) {
+    display: none;
+}
+
+/* Estilos para formularios */
+.promociones-form-input[type="date"] {
+    font-family: inherit;
+}
+
+.promociones-form-input[type="number"] {
+    font-family: inherit;
+}
+
+/* Estilos para botones de acción específicos */
+.promociones-action-button.bg-blue-600:hover {
+    background-color: #2563eb;
+}
+
+.promociones-action-button.bg-yellow-600:hover {
+    background-color: #ca8a04;
+}
+
+.promociones-action-button.bg-red-600:hover {
+    background-color: #dc2626;
+}

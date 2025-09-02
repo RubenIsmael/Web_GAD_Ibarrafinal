@@ -28,9 +28,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems = [
     { id: 'home', label: 'Inicio', icon: Home },
-    { id: 'requerimientos', label: 'Requerimientos', icon: FileText },
-    { id: 'mensajeria', label: 'Mensajería', icon: MessageSquare },
-{ id: 'comerciantes', label: 'Comerciantes', icon: FolderOpen },
+   // { id: 'requerimientos', label: 'Requerimientos', icon: FileText },
+    { id: 'promociones', label: 'Promociones', icon: MessageSquare }, 
+    { id: 'comerciantes', label: 'Comerciantes', icon: FolderOpen },
     { id: 'ferias', label: 'Ferias', icon: Calendar },
     { id: 'locales', label: 'Locales Comerciales', icon: Store },
   ];
