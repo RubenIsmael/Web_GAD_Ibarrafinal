@@ -81,7 +81,7 @@
   left: 0;
   width: 100%;
   height: 0.5rem;
-  background: linear-gradient(to right, #f87171, #ef4444, #dc2626);
+  background: linear-gradient(to right, #e77e7e, #ec5050, #aa0303);
 }
 
 .home-logo-content {
@@ -102,7 +102,7 @@
 .home-logo-circle {
   width: 8rem;
   height: 8rem;
-  background: linear-gradient(to bottom right, #ef4444, #dc2626, #b91c1c);
+  background: linear-gradient(to bottom right, #f7f1f1, #e59d9d, #e46767);
   border-radius: 50%;
   display: flex;
   align-items: center;

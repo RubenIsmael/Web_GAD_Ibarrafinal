@@ -43,12 +43,15 @@ const validarEstado = (estado: string | undefined): 'pendiente' | 'aprobado' | '
   
   const estadoLower = estado.toLowerCase();
   
+  console.log(`🔍 Validando estado: "${estado}" -> Lower: "${estadoLower}"`);
+  
   switch (estadoLower) {
     case 'pending':
     case 'pendiente':
       return 'pendiente';
     case 'approved':
     case 'aprobado':
+    case 'validated':
       return 'aprobado';
     case 'rejected':
     case 'rechazado':
@@ -68,6 +71,7 @@ const validarEstado = (estado: string | undefined): 'pendiente' | 'aprobado' | '
       if ((estadosValidos as readonly string[]).includes(estado)) {
         return estado as 'pendiente' | 'aprobado' | 'rechazado' | 'en-progreso' | 'completado';
       }
+      console.log(`⚠️ Estado no reconocido: "${estado}", usando 'pendiente' por defecto`);
       return 'pendiente';
     }
   }
@@ -83,7 +87,7 @@ const Proyectos: React.FC = () => {
     aprobados: 0
   });
   
-  // *** COMPONENTE DOCUMENTVIEWER COMPLETO CON ESTILOS INLINE ***
+  // *** COMPONENTE DOCUMENTVIEWER COMPLETO ***
   const DocumentViewer = ({ 
     isOpen, 
     onClose, 
@@ -124,42 +128,16 @@ const Proyectos: React.FC = () => {
 
     if (!documentData || !documentName) {
       return (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            maxWidth: '400px',
-            textAlign: 'center',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-          }}>
-            <FileText style={{ width: '48px', height: '48px', color: '#dc2626', margin: '0 auto 16px' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Error al cargar documento</h3>
-            <p style={{ color: '#6b7280', marginBottom: '16px' }}>No se pudieron cargar los datos del documento</p>
-            <button 
-              onClick={onClose} 
-              style={{
-                backgroundColor: '#6b7280',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Cerrar
-            </button>
+        <div className="document-viewer-overlay">
+          <div className="document-viewer-container">
+            <div className="document-viewer-error">
+              <FileText className="document-viewer-error-icon" />
+              <h3>Error al cargar documento</h3>
+              <p>No se pudieron cargar los datos del documento</p>
+              <button onClick={onClose} className="document-viewer-cancel-btn">
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -224,253 +202,104 @@ const Proyectos: React.FC = () => {
     const handleRotate = (): void => setRotation(prev => (prev + 90) % 360);
 
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10000,
-        padding: '20px'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          width: '90vw',
-          height: '90vh',
-          maxWidth: '1200px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
+      <div className="document-viewer-overlay">
+        <div className="document-viewer-container">
           {/* Header */}
-          <div style={{
-            padding: '16px 24px',
-            borderBottom: '1px solid #e5e7eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#f9fafb'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <FileText style={{ width: '20px', height: '20px', color: '#2563eb', marginRight: '8px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0, color: '#1f2937' }}>{documentName}</h3>
+          <div className="document-viewer-header">
+            <div className="document-viewer-title">
+              <FileText className="w-5 h-5 text-blue-600 mr-2" />
+              <h3 title={documentName}>{documentName}</h3>
             </div>
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="document-viewer-controls">
               {fileType === 'image' && !loading && imageLoaded && (
                 <>
-                  <button 
-                    onClick={handleZoomOut} 
-                    disabled={zoom <= 25}
-                    style={{
-                      padding: '6px',
-                      backgroundColor: zoom <= 25 ? '#f3f4f6' : '#e5e7eb',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: zoom <= 25 ? 'not-allowed' : 'pointer',
-                      color: zoom <= 25 ? '#9ca3af' : '#374151'
-                    }}
-                  >
-                    <ZoomOut style={{ width: '16px', height: '16px' }} />
+                  <button onClick={handleZoomOut} className="document-viewer-control-btn" disabled={zoom <= 25}>
+                    <ZoomOut className="w-4 h-4" />
                   </button>
-                  <span style={{ fontSize: '14px', color: '#6b7280', minWidth: '40px', textAlign: 'center' }}>{zoom}%</span>
-                  <button 
-                    onClick={handleZoomIn} 
-                    disabled={zoom >= 200}
-                    style={{
-                      padding: '6px',
-                      backgroundColor: zoom >= 200 ? '#f3f4f6' : '#e5e7eb',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: zoom >= 200 ? 'not-allowed' : 'pointer',
-                      color: zoom >= 200 ? '#9ca3af' : '#374151'
-                    }}
-                  >
-                    <ZoomIn style={{ width: '16px', height: '16px' }} />
+                  <span className="document-viewer-zoom-text">{zoom}%</span>
+                  <button onClick={handleZoomIn} className="document-viewer-control-btn" disabled={zoom >= 200}>
+                    <ZoomIn className="w-4 h-4" />
                   </button>
-                  <button 
-                    onClick={handleRotate}
-                    style={{
-                      padding: '6px',
-                      backgroundColor: '#e5e7eb',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      color: '#374151'
-                    }}
-                  >
-                    <RotateCw style={{ width: '16px', height: '16px' }} />
+                  <button onClick={handleRotate} className="document-viewer-control-btn">
+                    <RotateCw className="w-4 h-4" />
                   </button>
                 </>
               )}
-              <button 
-                onClick={onClose}
-                style={{
-                  padding: '6px',
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  marginLeft: '8px'
-                }}
-              >
-                <X style={{ width: '20px', height: '20px' }} />
+              <button onClick={onClose} className="document-viewer-close-btn">
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
 
           {/* Content */}
-          <div style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            backgroundColor: '#f8fafc',
-            overflow: 'hidden'
-          }}>
-            {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  border: '3px solid #e5e7eb',
-                  borderTopColor: '#2563eb',
-                  animation: 'spin 1s linear infinite',
-                  marginBottom: '12px'
-                }}></div>
-                <span style={{ color: '#6b7280' }}>Cargando documento...</span>
-              </div>
-            ) : error ? (
-              <div style={{ textAlign: 'center' }}>
-                <FileText style={{ width: '48px', height: '48px', color: '#dc2626', margin: '0 auto 16px' }} />
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#1f2937' }}>Error al cargar</h3>
-                <p style={{ color: '#6b7280' }}>{error}</p>
-              </div>
-            ) : fileType === 'pdf' ? (
-              <iframe
-                src={dataUrl}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                  borderRadius: '8px'
-                }}
-                title={documentName}
-                onError={() => setError('Error al cargar el archivo PDF')}
-              />
-            ) : (
-              <div style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'auto'
-              }}>
-                {!imageLoaded && !error && (
-                  <div style={{ display: 'flex', alignItems: 'center', position: 'absolute' }}>
-                    <div style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      border: '2px solid #e5e7eb',
-                      borderTopColor: '#2563eb',
-                      animation: 'spin 1s linear infinite',
-                      marginRight: '8px'
-                    }}></div>
-                    <span style={{ color: '#6b7280' }}>Cargando imagen...</span>
-                  </div>
-                )}
-                <img
+          <div className="document-viewer-content">
+            <div className="document-viewer-content-inner">
+              {loading ? (
+                <div className="document-viewer-loading">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                  <span>Cargando documento...</span>
+                </div>
+              ) : error ? (
+                <div className="document-viewer-error">
+                  <FileText className="document-viewer-error-icon" />
+                  <h3>Error al cargar</h3>
+                  <p>{error}</p>
+                </div>
+              ) : fileType === 'pdf' ? (
+                <iframe
                   src={dataUrl}
-                  alt={documentName}
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    objectFit: 'contain',
-                    transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                    transition: 'transform 0.2s ease',
-                    display: imageLoaded ? 'block' : 'none'
-                  }}
-                  onLoad={() => {
-                    setImageLoaded(true);
-                    setError('');
-                  }}
-                  onError={() => {
-                    setError('Error al cargar la imagen');
-                    setImageLoaded(false);
-                  }}
+                  className="document-viewer-iframe"
+                  title={documentName}
+                  onError={() => setError('Error al cargar el archivo PDF')}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="document-viewer-image-container">
+                  {!imageLoaded && !error && (
+                    <div className="document-viewer-loading">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                      <span>Cargando imagen...</span>
+                    </div>
+                  )}
+                  <img
+                    src={dataUrl}
+                    alt={documentName}
+                    className="document-viewer-image"
+                    style={{
+                      transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                      transition: 'transform 0.2s ease',
+                      display: imageLoaded ? 'block' : 'none'
+                    }}
+                    onLoad={() => {
+                      setImageLoaded(true);
+                      setError('');
+                    }}
+                    onError={() => {
+                      setError('Error al cargar la imagen');
+                      setImageLoaded(false);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
-          <div style={{
-            padding: '16px 24px',
-            borderTop: '1px solid #e5e7eb',
-            backgroundColor: '#f9fafb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between'
-          }}>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>
+          <div className="document-viewer-footer">
+            <div className="document-viewer-info">
               {fileType === 'pdf' ? 'Documento PDF' : 'Imagen'} • {documentName}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                onClick={handleDownload} 
-                disabled={loading}
-                style={{
-                  backgroundColor: '#059669',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.5 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontSize: '14px'
-                }}
-              >
-                <Download style={{ width: '16px', height: '16px', marginRight: '6px' }} />
+            <div className="document-viewer-actions">
+              <button onClick={handleDownload} className="document-viewer-download-btn" disabled={loading}>
+                <Download className="w-4 h-4 mr-2" />
                 Descargar
               </button>
-              <button 
-                onClick={onClose}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
+              <button onClick={onClose} className="document-viewer-cancel-btn">
                 Cerrar
               </button>
             </div>
           </div>
         </div>
-
-        {/* Keyframes para animación de carga */}
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   };
@@ -691,7 +520,7 @@ const Proyectos: React.FC = () => {
     }
   };
 
-  // Cargar proyectos - MODIFICADO PARA ORDENAR DEL MÁS NUEVO AL MÁS ANTIGUO
+  // Cargar proyectos
   const loadProyectos = async (page: number = currentPage, size: number = pageSize) => {
     try {
       setLoading(true);
@@ -702,57 +531,60 @@ const Proyectos: React.FC = () => {
         return;
       }
       
-      const response = await apiService.getProyectosPendientes(page, size);
+      // Obtener datos de negocios que funcionan como proyectos
+      const response = await apiService.getProyectos(page, size);
       
       if (response.success && response.data) {
-        const proyectosLimpios = response.data.content.filter(proyecto => proyecto && proyecto.id);
+        console.log('📊 Datos recibidos del endpoint:', response.data);
         
-        const proyectosNormalizados = proyectosLimpios.map(proyecto => {
-          const datosPrueba = {
-            phone: '0987654321',
-            address: 'Av. Amazonas y Naciones Unidas, Quito',
-            email: 'usuario@ejemplo.com',
-            cedula: '1234567890'
-          };
+        // Los datos vienen en response.data.data.content (estructura de negocios)
+        const negociosData = response.data.data?.content || response.data.content || [];
+        const negociosLimpios = negociosData.filter(negocio => negocio && negocio.id);
+        
+        console.log(`📋 Procesando ${negociosLimpios.length} negocios como proyectos`);
+        
+        const proyectosNormalizados = negociosLimpios.map(negocio => {
+          const estadoOriginal = negocio.validationStatus || negocio.estado || negocio.status;
+          const estadoNormalizado = validarEstado(estadoOriginal);
+          
+          console.log(`📋 Negocio ${negocio.id}: "${negocio.commercialName}" - Estado original: "${estadoOriginal}" -> Normalizado: "${estadoNormalizado}"`);
+          console.log(`📋 Datos completos del negocio:`, negocio);
           
           return {
-            id: proyecto.id,
-            nombre: proyecto.nombre || proyecto.name || proyecto.title || '',
-            descripcion: proyecto.descripcion || proyecto.description || proyecto.desc || '',
-            estado: validarEstado(proyecto.estado || proyecto.status),
-            fechaEnvio: proyecto.fechaEnvio || proyecto.fecha_envio || '',
-            responsable: proyecto.responsable || proyecto.responsible || proyecto.autor || '',
-            presupuesto: proyecto.presupuesto || proyecto.budget || 0,
-            categoria: proyecto.categoria || proyecto.category || proyecto.cat || '',
-            fechaInicio: proyecto.fechaInicio || proyecto.fecha_inicio || proyecto.startDate || '',
-            fechaFin: proyecto.fechaFin || proyecto.fecha_fin || proyecto.endDate || '',
-            email: proyecto.email || proyecto.correo || proyecto.mail || datosPrueba.email,
-            cedula: proyecto.cedula || proyecto.identification || proyecto.identificacion || datosPrueba.cedula,
-            telefono: proyecto.phone || proyecto.telefono || proyecto.tel || proyecto.celular || datosPrueba.phone,
-            address: proyecto.address || proyecto.direccion || proyecto.location || datosPrueba.address
+            id: negocio.id,
+            nombre: negocio.commercialName || negocio.nombre || '',
+            descripcion: negocio.description || negocio.descripcion || '',
+            estado: estadoNormalizado,
+            fechaEnvio: negocio.createdAt || negocio.fechaEnvio || new Date().toISOString(),
+            responsable: negocio.representativeName || negocio.responsable || '',
+            presupuesto: negocio.presupuesto || 0,
+            categoria: negocio.category?.name || negocio.categoria || '',
+            fechaInicio: negocio.fechaInicio || '',
+            fechaFin: negocio.fechaFin || '',
+            email: negocio.email || '',
+            cedula: negocio.cedulaOrRuc || negocio.cedula || '',
+            telefono: negocio.phone || negocio.telefono || '',
+            address: negocio.parishCommunitySector || negocio.address || ''
           } as ProyectoAPI;
         });
         
-        // *** CAMBIO 1: ORDENAR DEL MÁS NUEVO AL MÁS ANTIGUO ***
-        const proyectosOrdenados = proyectosNormalizados.sort((a, b) => {
-          // Primero intentar ordenar por fecha de envío si existe
-          if (a.fechaEnvio && b.fechaEnvio) {
-            return new Date(b.fechaEnvio).getTime() - new Date(a.fechaEnvio).getTime();
-          }
-          
-          // Si no hay fechas, ordenar por ID (asumiendo que IDs más altos son más recientes)
-          const idA = parseInt(a.id) || 0;
-          const idB = parseInt(b.id) || 0;
-          return idB - idA; // Descendente (más nuevo primero)
-        });
+        console.log(`📊 Proyectos normalizados finales:`, proyectosNormalizados);
+        setProyectos(proyectosNormalizados);
         
-        setProyectos(proyectosOrdenados);
-        setTotalPages(response.data.totalPages);
-        setTotalElements(response.data.totalElements);
-        setCurrentPageSafe(response.data.pageable.pageNumber);
+        // Usar la estructura correcta de datos de negocios
+        const paginationData = response.data.data || response.data;
+        setTotalPages(paginationData.totalPages || 1);
+        setTotalElements(paginationData.totalElements || proyectosNormalizados.length);
+        setCurrentPageSafe(paginationData.pageable?.pageNumber || 0);
         
         setTimeout(() => filtrarProyectos(), 0);
         setRenderError('');
+        
+        // Calcular estadísticas locales después de cargar los proyectos
+        setTimeout(() => {
+          console.log('📊 Calculando estadísticas con proyectos cargados:', proyectosNormalizados.length);
+          calcularEstadisticasLocales(proyectosNormalizados);
+        }, 100);
         
       } else {
         if (response.status === 401) {
@@ -802,7 +634,26 @@ const Proyectos: React.FC = () => {
       });
     } catch (e) {
       console.warn('No se pudieron cargar estadísticas del backend');
+      // Calcular estadísticas locales como respaldo
+      calcularEstadisticasLocales();
     }
+  };
+
+  // Calcular estadísticas locales usando los datos cargados
+  const calcularEstadisticasLocales = (proyectosData?: ProyectoAPI[]) => {
+    const proyectosACalcular = proyectosData || proyectos;
+    const total = proyectosACalcular.length;
+    const pendientes = proyectosACalcular.filter(proyecto => validarEstado(proyecto.estado) === 'pendiente').length;
+    const aprobados = proyectosACalcular.filter(proyecto => validarEstado(proyecto.estado) === 'aprobado').length;
+
+    console.log(`📊 Estadísticas locales calculadas: Total=${total}, Pendientes=${pendientes}, Aprobados=${aprobados}`);
+    console.log(`📊 Proyectos para calcular:`, proyectosACalcular.map(p => ({ nombre: p.nombre, estado: p.estado })));
+
+    setStats({
+      totalProyectos: total,
+      pendientes: pendientes,
+      aprobados: aprobados
+    });
   };
 
   // Aprobar proyecto
@@ -907,12 +758,19 @@ const Proyectos: React.FC = () => {
 
   // Función para filtrar proyectos
   const filtrarProyectos = useCallback(() => {
+    console.log(`🔍 Iniciando filtrado - Total proyectos: ${proyectos.length}, Filtro actual: "${filterStatus}", Búsqueda: "${searchTerm}"`);
+    
     let proyectosFiltrados = proyectos;
 
     if (filterStatus !== 'all') {
-      proyectosFiltrados = proyectosFiltrados.filter(proyecto => 
-        proyecto.estado === filterStatus
-      );
+      console.log(`🎯 Aplicando filtro de estado: "${filterStatus}"`);
+      proyectosFiltrados = proyectosFiltrados.filter(proyecto => {
+        const estadoNormalizado = validarEstado(proyecto.estado);
+        const coincide = estadoNormalizado === filterStatus;
+        console.log(`🔍 Proyecto: "${proyecto.nombre}" - Estado: "${proyecto.estado}" -> Normalizado: "${estadoNormalizado}" - Filtro: "${filterStatus}" - Coincide: ${coincide}`);
+        return coincide;
+      });
+      console.log(`✅ Después del filtro de estado: ${proyectosFiltrados.length} proyectos`);
     }
 
     if (searchTerm.trim() !== '') {
@@ -931,6 +789,7 @@ const Proyectos: React.FC = () => {
       proyecto.nombre && proyecto.nombre.trim() !== ''
     );
 
+    console.log(`📊 Filtrado completado: ${proyectosFiltrados.length} proyectos de ${proyectos.length} totales`);
     setProyectosFiltrados(proyectosFiltrados);
   }, [proyectos, filterStatus, searchTerm]);
 
@@ -1096,7 +955,7 @@ const Proyectos: React.FC = () => {
                     <Eye className="w-4 h-4" />
                     <span>Ver</span>
                   </button>
-                  <button 
+                {/*  <button 
                     onClick={() => {
                       setSelectedProyecto(proyecto);
                       setNewProyecto({
@@ -1152,7 +1011,7 @@ const Proyectos: React.FC = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Eliminar</span>
-                  </button>
+                  </button>*/}
                 </>
               )}
             </div>
@@ -1291,9 +1150,7 @@ const Proyectos: React.FC = () => {
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="aprobado">Aprobado</option>
-
-                <option value="en-progreso">En Progreso</option>
-                <option value="completado">Completado</option>
+                <option value="rechazado">Rechazado</option>
               </select>
             </div>
 
@@ -1312,14 +1169,7 @@ const Proyectos: React.FC = () => {
               </select>
             </div>
 
-            <button
-              onClick={() => setShowModal(true)}
-              className="proyectos-add-button"
-              disabled={loading || !apiService.isAuthenticated()}
-            >
-              <Plus className="w-5 h-5" />
-              <span>Nuevo Proyecto</span>
-            </button>
+
           </div>
         </div>
       </div>
@@ -1608,13 +1458,13 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para ver documentos - *** CAMBIO 3: CAMBIO DE TÍTULO *** */}
+      {/* Modal para ver documentos - EXACTAMENTE COMO EN TU IMAGEN */}
       {showDocumentsModal && selectedProyecto && (
         <div className="proyectos-modal-overlay">
           <div className="proyectos-modal max-w-4xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="proyectos-modal-title">
-                Documentos del Comerciante: {selectedProyecto.nombre}
+                Documentos del Proyecto: {selectedProyecto.nombre}
               </h2>
               <button
                 onClick={() => {
@@ -2297,7 +2147,7 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* *** CAMBIO 2: VISOR DE DOCUMENTOS FUNCIONAL EN VENTANA FLOTANTE *** */}
+      {/* Visor de documentos - VENTANA FLOTANTE COMPLETA */}
       <DocumentViewer
         isOpen={showDocumentViewer}
         onClose={() => {

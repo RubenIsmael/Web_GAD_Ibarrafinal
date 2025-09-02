@@ -857,14 +857,7 @@ const LocalesComerciales: React.FC = () => {
               </select>
             </div>
 
-            <button
-              onClick={() => setShowModal(true)}
-              className="locales-add-button"
-              disabled={loading || !apiService.isAuthenticated()}
-            >
-              <Plus className="w-5 h-5" />
-              <span>Registrar Local</span>
-            </button>
+           
           </div>
         </div>
       </div>

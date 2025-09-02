@@ -24,8 +24,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         return <Requerimientos />;
       case 'mensajeria':
         return <Mensajeria />;
-      case 'comerciantes': // Cambiado de 'proyectos' a 'comerciantes'
-        return <Proyectos />; // Mantener el componente original
+      case 'comerciantes': 
+        return <Proyectos />; 
       case 'ferias':
         return <Ferias />;
       case 'locales':
@@ -52,7 +52,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           <div className="layout-header-container">
             <div className="layout-brand">
               <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Escudo_de_Ibarra_%28Ecuador%29.png/250px-Escudo_de_Ibarra_%28Ecuador%29.png"
+                src="https://www.logotypes101.com/logos/210/0387163D0C008C869E59CA854A9A3088/ibarra.png"
                 alt="Escudo GAD Ibarra"
                 className="layout-logo"
               />

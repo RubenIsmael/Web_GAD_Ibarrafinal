@@ -300,13 +300,51 @@ $shadow-button: 0 10px 30px rgba(220, 38, 38, 0.4);
       filter: blur(8px);
     }
 
-    .logo-image {
-      width: 3.5rem;
-      height: 3.5rem;
-      position: relative;
-      z-index: 10;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-    }
+/* Contenedor del logo circular */
+.logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Contenedor circular para la imagen */
+.home-logo-circle {
+  width: 9rem;
+  height: 7rem;
+  background: linear-gradient(135deg, #ffffff 0%, #ff6b6b 100%);
+  /* Alternativa más sutil: background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #ff6b6b 100%); */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+  padding: 1rem;
+  aspect-ratio: 1/1; /* Fuerza que sea perfectamente circular */
+}
+
+/* La imagen dentro del círculo */
+.home-logo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Mantiene la proporción de la imagen */
+  max-width: 6rem; /* Tamaño máximo del logo */
+  max-height: 6rem;
+  z-index: 2;
+  position: relative;
+}
+
+/* Variante alternativa - Si quieres fondo completamente blanco */
+.home-logo-circle.white-bg {
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+}
+
+/* Variante alternativa - Si quieres un degradado más suave */
+.home-logo-circle.soft-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #fee2e2 50%, #fecaca 100%);
+}
   }
 
   .main-title {

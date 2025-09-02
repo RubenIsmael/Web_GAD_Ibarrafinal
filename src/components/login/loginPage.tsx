@@ -326,21 +326,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
         
         {/* Logo y encabezado */}
-        <div className="header-section">
-          <div className="logo-container">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Escudo_de_Ibarra_%28Ecuador%29.png/250px-Escudo_de_Ibarra_%28Ecuador%29.png" 
-              alt="Escudo GAD Ibarra" 
-              className="logo-image"
-              onError={handleImageError}
-            />
-          </div>
-          <h1 className="main-title">Bienvenido</h1>
-          <p className="subtitle">Municipalidad de Ibarra</p>
-          <p className="description">
-            Gestión de Locales Comerciales y Emprendimientos
-          </p>
-        </div>
+<div className="header-section">
+  <div className="logo-container">
+    <div className="home-logo-circle">
+      <img 
+        src="https://seeklogo.com/images/I/ibarra-logo-50CAF2B8D2-seeklogo.com.png" 
+        alt="Escudo GAD Ibarra" 
+        onError={handleImageError}
+      />
+    </div>
+  </div>
+  <h1 className="main-title">Bienvenido</h1>
+  <p className="subtitle">Municipalidad de Ibarra</p>
+  <p className="description">
+    Gestión de Locales Comerciales y Emprendimientos
+  </p>
+</div>
 
         {/* Estado de conexión detallado */}
         <div className="connection-status">
@@ -475,10 +476,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             Versión 1.1.5 - 🔐 JWT captura automática mejorada
           </p>
            <p className="version">
-            Desarrollador Ing. Verdesoto V. Ruben Ismael,  
-                          Ing. Nathaly licethe Zambrano, 
-                          ing. Fernando Suarez, 
-                          Ing. Israel López, 
+            Desarrollador Ing. Verdesoto V. Ruben Ismael,   
+                          Ing. Zambrano S. Nathaly licett, 
+                          ing. Suarez A. Fernando Anderson, 
+                          Ing. López B. Israel Isaias, 
           </p>
         </div>
       </div>

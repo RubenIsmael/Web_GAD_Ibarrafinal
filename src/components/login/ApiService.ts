@@ -951,16 +951,29 @@ export class ApiService {
 
   // *** MÉTODOS ESPECÍFICOS PARA PROYECTOS ***
   public async getProyectos(page: number = 0, size: number = 10, status?: string, search?: string): Promise<ApiResponse<PaginatedResponse<ProyectoAPI>>> {
+    console.log('📋 Obteniendo proyectos con filtros:', { page, size, status, search });
+    
+    // Usar el endpoint que sabemos que funciona
     const params = new URLSearchParams({
       page: page.toString(),
-      size: size.toString(),
-      ...(status && status !== 'all' && { estado: status }),
-      ...(search && { search })
+      size: size.toString()
     });
 
-    return this.request<PaginatedResponse<ProyectoAPI>>(`/api/proyectos?${params}`, {
-      method: 'GET'
-    });
+    try {
+      console.log(`🔄 Usando endpoint: /business/private-list-by-category?${params}`);
+      const response = await this.request<any>(`/business/private-list-by-category?${params}`, { method: 'GET' });
+      
+      if (response.success) {
+        console.log(`✅ Éxito obteniendo datos de negocios para proyectos`);
+        return response;
+      } else {
+        console.warn(`⚠️ Endpoint falló:`, response.error);
+        return response;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Error con endpoint:`, error);
+      throw error;
+    }
   }
 
   public async getProyectosPendientes(page: number = 0, size: number = 10): Promise<ApiResponse<PaginatedResponse<ProyectoAPI>>> {
@@ -980,14 +993,62 @@ export class ApiService {
     approvedUsers: number;
     rejectedUsers?: number;
   }>> {
-    return this.request<{
-      totalUsers: number;
-      pendingUsers: number;
-      approvedUsers: number;
-      rejectedUsers?: number;
-    }>(`/admin/get-dashboard-stats`, {
-      method: 'GET'
-    });
+    console.log('📊 Obteniendo estadísticas del dashboard de administrador');
+    
+    try {
+      // Intentar el endpoint específico primero
+      const response = await this.request<{
+        totalUsers: number;
+        pendingUsers: number;
+        approvedUsers: number;
+        rejectedUsers?: number;
+      }>(`/admin/get-dashboard-stats`, {
+        method: 'GET'
+      });
+      
+      if (response.success) {
+        console.log('✅ Estadísticas del dashboard obtenidas exitosamente');
+        return response;
+      } else {
+        console.warn('⚠️ Endpoint de dashboard stats falló, usando estadísticas de negocios como respaldo');
+        // Usar estadísticas de negocios como respaldo
+        const businessStats = await this.getBusinessStats();
+        if (businessStats.success && businessStats.data) {
+          return {
+            success: true,
+            data: {
+              totalUsers: businessStats.data.total,
+              pendingUsers: businessStats.data.pending,
+              approvedUsers: businessStats.data.approved,
+              rejectedUsers: businessStats.data.rejected
+            },
+            message: 'Estadísticas calculadas desde datos de negocios'
+          };
+        }
+        return response;
+      }
+    } catch (error) {
+      console.warn('⚠️ Error obteniendo estadísticas del dashboard:', error);
+      // Usar estadísticas de negocios como respaldo
+      const businessStats = await this.getBusinessStats();
+      if (businessStats.success && businessStats.data) {
+        return {
+          success: true,
+          data: {
+            totalUsers: businessStats.data.total,
+            pendingUsers: businessStats.data.pending,
+            approvedUsers: businessStats.data.approved,
+            rejectedUsers: businessStats.data.rejected
+          },
+          message: 'Estadísticas calculadas desde datos de negocios (respaldo)'
+        };
+      }
+      return {
+        success: false,
+        error: 'Error obteniendo estadísticas del dashboard',
+        status: 500
+      };
+    }
   }
 
   public async aprobarProyecto(projectId: string): Promise<ApiResponse<ProyectoAPI>> {
@@ -2205,36 +2266,8 @@ export class ApiService {
   }>> {
     console.log('📊 Obteniendo estadísticas de negocios');
 
-    const possibleEndpoints = [
-      '/business/stats',
-      '/business/statistics',
-      '/admin/business/stats',
-      '/business/admin/stats',
-      '/business/dashboard-stats'
-    ];
-
-    for (const endpoint of possibleEndpoints) {
-      try {
-        console.log(`🔄 Intentando endpoint de estadísticas: ${endpoint}`);
-        const response = await this.request<{
-          total: number;
-          pending: number;
-          approved: number;
-          rejected: number;
-        }>(endpoint, { method: 'GET' });
-        
-        if (response.success) {
-          console.log(`✅ Estadísticas obtenidas con endpoint: ${endpoint}`);
-          return response;
-        } else if (response.status !== 404) {
-          return response;
-        }
-      } catch (error) {
-        console.warn(`⚠️ Endpoint ${endpoint} falló:`, error);
-      }
-    }
-
-    // Si no hay endpoint específico, calcular desde la lista general
+    // Evitar endpoints problemáticos que causan errores 500
+    // Usar directamente el cálculo desde la lista de negocios
     console.log('🔄 Calculando estadísticas desde lista general de negocios');
     try {
       const businessListResponse = await this.getPrivateBusinessList(0, 1000); // Obtener muchos para calcular
@@ -2244,7 +2277,8 @@ export class ApiService {
         const stats = {
           total: businessListResponse.data.data.totalElements || businesses.length,
           pending: businesses.filter((b: any) => b.validationStatus === 'PENDING').length,
-          approved: businesses.filter((b: any) => b.validationStatus === 'APPROVED').length
+          approved: businesses.filter((b: any) => b.validationStatus === 'APPROVED' || b.validationStatus === 'VALIDATED').length,
+          rejected: businesses.filter((b: any) => b.validationStatus === 'REJECTED').length
         };
         
         console.log('✅ Estadísticas calculadas desde lista:', stats);
@@ -2253,16 +2287,22 @@ export class ApiService {
           data: stats,
           message: 'Estadísticas calculadas desde lista de negocios'
         };
+      } else {
+        console.warn('⚠️ No se pudo obtener la lista de negocios para calcular estadísticas');
+        return {
+          success: false,
+          error: 'No se pudo obtener la lista de negocios',
+          status: businessListResponse.status || 500
+        };
       }
     } catch (error) {
       console.warn('⚠️ Error calculando estadísticas desde lista:', error);
+      return {
+        success: false,
+        error: 'Error de conexión al calcular estadísticas',
+        status: 500
+      };
     }
-
-    return {
-      success: false,
-      error: 'No se pudieron obtener las estadísticas de negocios',
-      status: 404
-    };
   }
 
   /**
