@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, TrendingUp, MapPin, Calendar, Award, Store, FileText, MessageSquare } from 'lucide-react';
+import { Shield, Users, TrendingUp, MapPin, Calendar, Award, Store, FileText, MessageSquare, User } from 'lucide-react';
 import '../styles/home.css';
 
-const Home: React.FC = () => {
+interface HomeProps {
+  userData?: {
+    username: string;
+    token?: string;
+  };
+}
+
+const Home: React.FC<HomeProps> = ({ userData }) => {
   const [currentQuote, setCurrentQuote] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [mounted, setMounted] = useState(false);
@@ -18,7 +25,6 @@ const Home: React.FC = () => {
     "En la Ciudad Blanca cada piedra habla; basta escuchar con respeto - Luis Alberto Costales",
     "De las cenizas nació la nueva Ibarra, como el ave fénix de los Andes - Manuel Jijón Larrea",
     "Ibarra no necesita testigos, su belleza habla por sí sola - Julio Pazos Barrera"
-
   ];
 
   const stats = [
@@ -52,12 +58,21 @@ const Home: React.FC = () => {
         <div className="home-header">
           <div className="home-header-content">
             <div>
-              <h1 className="home-title">Bienvenido al Sistema Municipal</h1>
+              <h1 className="home-title">
+                {userData?.username ? `Bienvenido, ${userData.username}` : 'Bienvenido al Sistema Municipal'}
+              </h1>
               <p className="home-subtitle">
                 Gestión de Locales Comerciales, Emprendimientos y Ferias - GAD Municipal de Ibarra
               </p>
             </div>
             <div className="home-date">
+              {/* Agregar saludo personalizado si hay usuario */}
+              {userData?.username && (
+                <div className="user-welcome">
+                  <User size={16} className="user-icon" />
+                  <span className="user-name">{userData.username}</span>
+                </div>
+              )}
               <p>
                 {currentTime.toLocaleDateString('es-EC', {
                   weekday: 'long',

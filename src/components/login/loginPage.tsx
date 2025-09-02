@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, ArrowRight, Wifi, WifiOff } from 'lucide-react';
-import { LoginPageProps, LoginRequest, ServerStatus } from './interfaces';
+import { LoginRequest, ServerStatus } from './interfaces';
 import { ApiService } from './ApiService'; 
 import './login.scss';
+
+// Interfaces para el componente
+interface UserData {
+  username: string;
+  token?: string;
+}
+
+interface LoginPageProps {
+  onLogin: (success: boolean, userData?: UserData) => void;
+}
 
 // *** INSTANCIA GLOBAL DEL SERVICIO ***
 const apiService = new ApiService();
@@ -101,7 +111,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       
       if (apiService.isAuthenticated() && !apiService.isTokenExpired()) {
         console.log('✅ Sesión válida encontrada, usuario ya autenticado');
-        onLogin(true, apiService.getCurrentToken() || undefined);
+        // Necesitamos el username almacenado o usar un valor por defecto
+        const userData: UserData = {
+          username: 'Usuario', // Valor por defecto si no tenemos el username guardado
+          token: apiService.getCurrentToken() || undefined
+        };
+        onLogin(true, userData);
         return;
       }
       
@@ -187,7 +202,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     }
   };
 
-  // *** FUNCIÓN PRINCIPAL DE LOGIN MEJORADA PARA JWT ***
+  // *** FUNCIÓN PRINCIPAL DE LOGIN MEJORADA PARA JWT Y CAPTURA DE USERNAME ***
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
@@ -262,16 +277,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         
         console.log('✅ JWT persistido correctamente, autenticación exitosa');
         
-        // *** NOTIFICAR ÉXITO CON EL JWT ACTUAL ***
+        // *** PREPARAR DATOS DEL USUARIO CON EL NOMBRE CAPTURADO ***
         const finalToken = apiService.getCurrentToken();
-        onLogin(true, finalToken || undefined);
+        const userData: UserData = {
+          username: username.trim(), // Capturar el nombre de usuario ingresado
+          token: finalToken || undefined
+        };
+        
+        // *** NOTIFICAR ÉXITO CON LOS DATOS DEL USUARIO ***
+        onLogin(true, userData);
         
         // Limpiar formulario tras login exitoso
         setUsername('');
         setPassword('');
         
         // Log final de confirmación
-        console.log('🎉 Login completado exitosamente con JWT:', {
+        console.log('🎉 Login completado exitosamente:', {
+          username: userData.username,
           tokenLength: finalToken?.length,
           isValid: !apiService.isTokenExpired(),
           preview: finalToken?.substring(0, 30) + '...'
@@ -326,22 +348,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
         
         {/* Logo y encabezado */}
-<div className="header-section">
-  <div className="logo-container">
-    <div className="home-logo-circle">
-      <img 
-        src="https://seeklogo.com/images/I/ibarra-logo-50CAF2B8D2-seeklogo.com.png" 
-        alt="Escudo GAD Ibarra" 
-        onError={handleImageError}
-      />
-    </div>
-  </div>
-  <h1 className="main-title">Bienvenido</h1>
-  <p className="subtitle">Municipalidad de Ibarra</p>
-  <p className="description">
-    Gestión de Locales Comerciales y Emprendimientos
-  </p>
-</div>
+        <div className="header-section">
+          <div className="logo-container">
+            <div className="home-logo-circle">
+              <img 
+                src="https://seeklogo.com/images/I/ibarra-logo-50CAF2B8D2-seeklogo.com.png" 
+                alt="Escudo GAD Ibarra" 
+                onError={handleImageError}
+              />
+            </div>
+          </div>
+          <h1 className="main-title">Bienvenido</h1>
+          <p className="subtitle">Municipalidad de Ibarra</p>
+          <p className="description">
+            Gestión de Locales Comerciales y Emprendimientos
+          </p>
+        </div>
 
         {/* Estado de conexión detallado */}
         <div className="connection-status">
@@ -452,33 +474,17 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </button>
         </form>
 
-        {/* Información de debug en desarrollo 
-        {process.env.NODE_ENV === 'development' && (
-          <div className="debug-info">
-            <details>
-              <summary>Debug Info</summary>
-              <div className="debug-content">
-                <p>Servidor: {serverStatus}</p>
-                <p>Token presente: {apiService.isAuthenticated() ? 'Sí' : 'No'}</p>
-                <p>Token expirado: {apiService.isTokenExpired() ? 'Sí' : 'No'}</p>
-                <p>Tipo token: {apiService.getCurrentToken()?.includes('.') ? 'JWT' : 'Simple'}</p>
-                <p>Token preview: {apiService.getCurrentToken()?.substring(0, 30) + '...' || 'N/A'}</p>
-              </div>
-            </details>
-          </div>
-        )}*/}
-
         <div className="footer-section">
           <p className="copyright">
             © 2025 GAD Municipal de Ibarra
           </p>
           <p className="version">
-            Versión 1.1.5 - 🔐 JWT captura automática mejorada
+            Versión 1.1.6 - 👤 Captura de nombre de usuario implementada
           </p>
-           <p className="version">
+          <p className="version">
             Desarrollador Ing. Verdesoto V. Ruben Ismael,   
-                          Ing. Zambrano S. Nathaly licett, 
-                          ing. Suarez A. Fernando Anderson, 
+                          Ing. Zambrano S. Nathaly Licett, 
+                          Ing. Suarez A. Fernando Anderson, 
                           Ing. López B. Israel Isaias, 
           </p>
         </div>
