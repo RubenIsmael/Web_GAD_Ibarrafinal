@@ -1,4 +1,4 @@
-// components/login/interfaces.ts
+// components/login/interfaces.ts - ARCHIVO COMPLETO CON TODAS LAS EXPORTACIONES
 
 export interface LoginRequest {
   username: string;
@@ -10,6 +10,12 @@ export interface User {
   username: string;
   email?: string;
   role?: string;
+}
+
+// *** INTERFACE USERDATA EXPORTADA CORRECTAMENTE ***
+export interface UserData {
+  username: string;
+  token?: string;
 }
 
 export interface LoginResponse {
@@ -24,17 +30,36 @@ export interface ApiResponse<T = Record<string, unknown>> {
   data?: T;
   message?: string;
   error?: string;
-  status?: number; 
+  status?: number;
 }
 
+// *** INTERFACE CORREGIDA PARA LOGIN PROPS ***
 export interface LoginPageProps {
-  onLogin: (success: boolean, token?: string) => void;
+  onLogin: (success: boolean, userData?: UserData) => void;
 }
 
 export type ServerStatus = 'checking' | 'connected' | 'disconnected';
 
-// *** INTERFACES PARA PROYECTOS - ACTUALIZADAS ***
+// *** INTERFACES PARA COMPONENTES ***
+export interface HomeProps {
+  userData?: UserData;
+}
 
+export interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+  activeSection: string;
+  onSectionChange: (section: string) => void;
+  onLogout: () => void;
+  userData?: UserData;
+}
+
+export interface DashboardProps {
+  onLogout: () => void;
+  userData?: UserData;
+}
+
+// *** INTERFACES PARA PROYECTOS - MANTENIDAS ***
 export interface ProyectoBase {
   nombre: string;
   descripcion: string;
@@ -44,9 +69,9 @@ export interface ProyectoBase {
   email?: string;
   cedula?: string;
   telefono?: string;
-  phone?: string; // Campo alternativo
+  phone?: string;
   address?: string;
-  direccion?: string; // Campo alternativo
+  direccion?: string;
 }
 
 export interface ProyectoAPI extends ProyectoBase {
@@ -55,29 +80,28 @@ export interface ProyectoAPI extends ProyectoBase {
   fechaEnvio?: string;
   fechaInicio?: string;
   fechaFin?: string;
-  // Campos adicionales que pueden venir de la API
-  name?: string; // Campo alternativo para nombre
-  title?: string; // Campo alternativo para nombre
-  description?: string; // Campo alternativo para descripcion
-  desc?: string; // Campo alternativo para descripcion
-  status?: string; // Campo alternativo para estado
-  fecha_envio?: string; // Campo alternativo para fechaEnvio
-  fecha_inicio?: string; // Campo alternativo para fechaInicio
-  fecha_fin?: string; // Campo alternativo para fechaFin
-  startDate?: string; // Campo alternativo para fechaInicio
-  endDate?: string; // Campo alternativo para fechaFin
-  responsible?: string; // Campo alternativo para responsable
-  autor?: string; // Campo alternativo para responsable
-  budget?: number; // Campo alternativo para presupuesto
-  category?: string; // Campo alternativo para categoria
-  cat?: string; // Campo alternativo para categoria
-  correo?: string; // Campo alternativo para email
-  mail?: string; // Campo alternativo para email
-  identification?: string; // Campo alternativo para cedula
-  identificacion?: string; // Campo alternativo para cedula
-  tel?: string; // Campo alternativo para telefono
-  celular?: string; // Campo alternativo para telefono
-  location?: string; // Campo alternativo para address
+  name?: string;
+  title?: string;
+  description?: string;
+  desc?: string;
+  status?: string;
+  fecha_envio?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  startDate?: string;
+  endDate?: string;
+  responsible?: string;
+  autor?: string;
+  budget?: number;
+  category?: string;
+  cat?: string;
+  correo?: string;
+  mail?: string;
+  identification?: string;
+  identificacion?: string;
+  tel?: string;
+  celular?: string;
+  location?: string;
 }
 
 export interface ProyectoStats {

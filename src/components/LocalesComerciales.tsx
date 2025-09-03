@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, MessageSquare, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { ApiService } from './login/ApiService';
 import '../styles/localesComerciales.css';
-import { BusinessDetail, BusinessPhoto, BusinessImages } from './login/interfaces';
+
 // Usar la misma instancia global del servicio
 const apiService = new ApiService();
 
@@ -70,7 +70,6 @@ interface DocumentoNegocio {
   signature?: string;
 }
 
-
 // Función para validar y normalizar estados
 const validarEstadoNegocio = (estado: string | undefined): 'PENDING' | 'APPROVED' | 'REJECTED' => {
   if (!estado) return 'PENDING';
@@ -113,12 +112,6 @@ const LocalesComerciales: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-
-  // Estados para modal de imágenes
-  const [showImagesModal, setShowImagesModal] = useState(false);
-  const [businessImages, setBusinessImages] = useState<BusinessImages | null>(null);
-  const [imageLoading, setImageLoading] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Función wrapper para setCurrentPage que valida valores negativos
   const setCurrentPageSafe = (page: number) => {
@@ -225,58 +218,6 @@ const LocalesComerciales: React.FC = () => {
   // Estado para locales del usuario
   const [localesDelUsuario, setLocalesDelUsuario] = useState<BusinessAPI[]>([]);
 
-  // Función para cargar imágenes del negocio
-const loadBusinessImages = async (businessId: number) => {
-  try {
-    setImageLoading(true);
-    console.log('🖼️ Cargando imágenes del negocio:', businessId);
-   
-    // Tipar la respuesta correctamente
-    const response = await apiService.request<BusinessDetail>(`/admin/business/${businessId}`, {
-      method: 'GET'
-    });
-   
-    if (response.success && response.data) {
-      const businessData = response.data;
-      
-      // Buscar el logo (foto con publicId o photoType específico)
-      const logoPhoto = businessData.photos.find(photo => 
-        photo.publicId || photo.photoType === 'LOGO'
-      );
-      
-      // Filtrar las fotos SLIDE
-      const slidePhotos = businessData.photos.filter(photo => 
-        photo.photoType === 'SLIDE'
-      );
-      
-      // ✅ Asignar las imágenes procesadas
-      setBusinessImages({
-        logo: logoPhoto?.url || null,
-        photos: slidePhotos.map(photo => photo.url)
-      });
-      setCurrentImageIndex(0);
-      
-    } else {
-      console.error('❌ Error cargando imágenes:', response.error);
-      // ✅ Manejar error correctamente
-      setBusinessImages({
-        logo: null,
-        photos: [],
-        error: response.error || response.message || 'Error desconocido'
-      });
-    }
-  } catch (error) {
-    console.error('💥 Error de conexión cargando imágenes:', error);
-    // ✅ Manejar error de conexión
-    setBusinessImages({
-      logo: null,
-      photos: [],
-      error: 'Error de conexión'
-    });
-  } finally {
-    setImageLoading(false);
-  }
-};
   // Función unificada para verificar token
   const verificarToken = (): boolean => {
     console.log('🔍 Verificando estado de autenticación...');
@@ -285,6 +226,7 @@ const loadBusinessImages = async (businessId: number) => {
     const isAuth = apiService.isAuthenticated();
 
     console.log('🔑 Token actual:', token ? `${token.substring(0, 50)}...` : 'NO HAY TOKEN');
+    console.log('🔑 Token actual:', token);
     console.log('✅ ¿Está autenticado?:', isAuth);
 
     if (!isAuth || !token) {
@@ -388,8 +330,31 @@ const loadBusinessImages = async (businessId: number) => {
     console.log('👤 Abriendo locales del usuario:', negocio.user.name);
     try {
       // Buscar todos los negocios del mismo usuario
-      const localesDelUsuario = negocios.filter(n => n.user.id === negocio.user.id);
+      let localesDelUsuario = negocios.filter(n => n.user.id === negocio.user.id);
       console.log('🏪 Locales encontrados del usuario:', localesDelUsuario.length);
+      
+      // Si hay un filtro activo, aplicarlo también a los locales del usuario
+      if (filterStatus !== 'all') {
+        const statusMap: { [key: string]: string } = {
+          'activo': 'APPROVED',
+          'pendiente': 'PENDING',
+          'inactivo': 'REJECTED'
+        };
+        
+        if (filterStatus === 'activo') {
+          // Para "Aprobado" incluir tanto APPROVED como VALIDATED
+          localesDelUsuario = localesDelUsuario.filter(negocio => 
+            validarEstadoNegocio(negocio.validationStatus) === 'APPROVED'
+          );
+        } else {
+          const apiStatus = statusMap[filterStatus] || filterStatus;
+          localesDelUsuario = localesDelUsuario.filter(negocio => 
+            validarEstadoNegocio(negocio.validationStatus) === validarEstadoNegocio(apiStatus)
+          );
+        }
+        
+        console.log(`🔍 Aplicando filtro "${filterStatus}" a locales del usuario. Locales filtrados:`, localesDelUsuario.length);
+      }
       
       setLocalesDelUsuario(localesDelUsuario);
       setSelectedNegocio(negocio);
@@ -400,6 +365,8 @@ const loadBusinessImages = async (businessId: number) => {
       alert('Error al abrir los locales del usuario');
     }
   };
+
+
 
   // Cargar negocios desde la API
   const loadNegocios = async (page: number = currentPage, size: number = pageSize) => {
@@ -433,6 +400,8 @@ const loadBusinessImages = async (businessId: number) => {
       const response: any = await apiService.request<PaginatedBusinessResponse>(`/business/private-list-by-category?${params}`, {
         method: 'GET'
       });
+
+      ///business/private-list-by-category?page=2&size=5
 
       console.log('📡 Respuesta de la API:', response);
 
@@ -518,6 +487,8 @@ const loadBusinessImages = async (businessId: number) => {
       rechazados
     });
   };
+
+
 
   // Crear negocio
   const crearNegocio = async (e: React.FormEvent) => {
@@ -854,6 +825,7 @@ const loadBusinessImages = async (businessId: number) => {
             </div>
           </div>
         </div>
+
       </div>
 
       {/* Filtros y búsqueda */}
@@ -889,6 +861,7 @@ const loadBusinessImages = async (businessId: number) => {
                 <option value="all">Todos los estados</option>
                 <option value="pendiente">Pendiente</option>
                 <option value="activo">Aprobado</option>
+
               </select>
             </div>
 
@@ -906,6 +879,15 @@ const loadBusinessImages = async (businessId: number) => {
                 <option value={50}>50 por página</option>
               </select>
             </div>
+
+            <button
+              onClick={() => setShowModal(true)}
+              className="locales-add-button"
+              disabled={loading || !apiService.isAuthenticated()}
+            >
+              <Plus className="w-5 h-5" />
+              <span>Registrar Local</span>
+            </button>
           </div>
         </div>
       </div>
@@ -933,7 +915,7 @@ const loadBusinessImages = async (businessId: number) => {
       {/* Indicador de negocios filtrados */}
       {!loading && negociosFiltrados.length > 0 && (
         <div className="mb-4 text-sm text-gray-600">
-          Mostrando {obtenerUsuariosPaginados(negociosFiltrados, currentPage, pageSize).length} de {agruparNegociosPorUsuario(negociosFiltrados).length} usuarios
+                          Mostrando {obtenerUsuariosPaginados(negociosFiltrados, currentPage, pageSize).length} de {agruparNegociosPorUsuario(negociosFiltrados).length} usuarios
           {filterStatus !== 'all' && ` (filtrado por: ${formatEstadoText(filterStatus === 'activo' ? 'APPROVED' : filterStatus === 'pendiente' ? 'PENDING' : 'REJECTED')})`}
           {searchTerm && ` (búsqueda: "${searchTerm}")`}
         </div>
@@ -1302,8 +1284,11 @@ const loadBusinessImages = async (businessId: number) => {
       {showDocumentsModal && selectedNegocio && (
         <div className="locales-modal-overlay" onClick={() => console.log('🔍 Modal overlay clickeado')}>
           <div className="locales-modal max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            {console.log('🎯 Renderizando modal de locales del usuario:', selectedNegocio?.user.name)}
-            <div className="flex justify-between items-center mb-6">
+           console.log('🎯 Renderizando modal de locales del usuario:', selectedNegocio?.user.name);
+
+return (
+  <div>
+     <div className="flex justify-between items-center mb-6">
               <h2 className="locales-modal-title">
                 Locales de {selectedNegocio?.user.name || 'Usuario'}
               </h2>
@@ -1319,7 +1304,8 @@ const loadBusinessImages = async (businessId: number) => {
                 <span className="text-2xl font-bold">×</span>
               </button>
             </div>
-            
+  </div>
+);                     
             {/* Información básica del usuario */}
             <div className="mb-6 p-4 border rounded-lg bg-blue-50">
               <h3 className="text-lg font-semibold mb-2 text-blue-900">
@@ -1364,7 +1350,35 @@ const loadBusinessImages = async (businessId: number) => {
                         </div>
                       </div>
                       
-                  {/* Acciones del modal */}
+                      {/* Botones de acción para cada local */}
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => {
+                            setSelectedNegocio(negocio);
+                            setShowViewModal(true);
+                            setShowDocumentsModal(false);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex items-center gap-2"
+                          title="Ver detalles completos del local"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>Ver</span>
+                        </button>
+                        
+
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <Store className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">No se encontraron locales para este usuario</p>
+                </div>
+              )}
+            </div>
+
+            {/* Acciones del modal */}
             <div className="flex justify-end items-center mt-6 pt-4 border-t">
               <button
                 onClick={() => {
@@ -1379,7 +1393,9 @@ const loadBusinessImages = async (businessId: number) => {
             </div>
           </div>
         </div>
-      )},
+      )}
+
+
 
       {/* Modal para ver detalles */}
       {showViewModal && selectedNegocio && (
@@ -1470,20 +1486,17 @@ const loadBusinessImages = async (businessId: number) => {
                   </div>
                 )}
                 
-                {/* Redes sociales como campo separado - SIEMPRE visible CON DISEÑO MEJORADO */}
+                {/* Redes sociales como campo separado - SIEMPRE visible */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Redes Sociales</label>
-                  <div className="flex flex-wrap gap-3 mt-1">
+                  <label className="block text-sm font-medium text-gray-700">Redes Sociales</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
                     {selectedNegocio.facebook && (
                       <a
                         href={selectedNegocio.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs hover:bg-blue-200 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
                         Facebook
                       </a>
                     )}
@@ -1492,11 +1505,8 @@ const loadBusinessImages = async (businessId: number) => {
                         href={selectedNegocio.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                        className="bg-pink-100 text-pink-800 px-2 py-1 rounded text-xs hover:bg-pink-200 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                        </svg>
                         Instagram
                       </a>
                     )}
@@ -1505,11 +1515,8 @@ const loadBusinessImages = async (businessId: number) => {
                         href={selectedNegocio.tiktok}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                        className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs hover:bg-gray-200 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-.88-.05A6.33 6.33 0 0 0 5.12 20.9a6.34 6.34 0 0 0 10.86-4.43V7.93a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.16-.36z"/>
-                        </svg>
                         TikTok
                       </a>
                     )}
@@ -1518,16 +1525,13 @@ const loadBusinessImages = async (businessId: number) => {
                         href={selectedNegocio.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                        className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs hover:bg-green-200 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                        </svg>
                         Sitio Web
                       </a>
                     )}
                     {!selectedNegocio.facebook && !selectedNegocio.instagram && !selectedNegocio.tiktok && !selectedNegocio.website && (
-                      <span className="text-gray-500 text-sm italic bg-gray-100 px-3 py-2 rounded-lg">No especificado</span>
+                      <span className="text-gray-500 text-xs">No especificado</span>
                     )}
                   </div>
                 </div>
@@ -1545,22 +1549,6 @@ const loadBusinessImages = async (businessId: number) => {
               {/* Botones de acción para locales pendientes */}
               {selectedNegocio.validationStatus === 'PENDING' && (
                 <div className="flex gap-3">
-                  {/* Botón Ver Imágenes */}
-                  <button
-                    onClick={() => {
-                      setShowImagesModal(true);
-                      loadBusinessImages(selectedNegocio.id);
-                    }}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                    title="Ver imágenes del negocio"
-                    disabled={loading}
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                    </svg>
-                    <span>Ver Imágenes</span>
-                  </button>
-
                   <button
                     onClick={async () => {
                       if (!window.confirm('¿Está seguro que desea aprobar este local?')) {
@@ -1660,167 +1648,6 @@ const loadBusinessImages = async (businessId: number) => {
         </div>
       )}
 
-      {/* Modal para Ver Imágenes */}
-      {showImagesModal && selectedNegocio && (
-        <div className="locales-modal-overlay">
-          <div className="locales-modal max-w-5xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="locales-modal-title">Imágenes del Negocio: {selectedNegocio.commercialName}</h2>
-              <button
-                onClick={() => {
-                  setShowImagesModal(false);
-                  setBusinessImages(null);
-                  setCurrentImageIndex(0);
-                }}
-                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-
-            {imageLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Cargando imágenes...</p>
-                </div>
-              </div>
-            ) : businessImages?.error ? (
-              <div className="text-center py-12">
-                <div className="text-red-500 mb-4">
-                  <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                </div>
-                <p className="text-gray-600 text-lg">Error al cargar las imágenes</p>
-                <p className="text-gray-500 text-sm mt-2">{businessImages.error}</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Logo */}
-                {businessImages?.logo && (
-                  <div className="bg-white rounded-lg shadow-md p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 p-2 rounded-full">
-                          <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Logo del Negocio</h3>
-                          <p className="text-sm text-gray-600">Imagen oficial del establecimiento</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <img 
-                          src={businessImages.logo} 
-                          alt="Logo del negocio" 
-                          className="max-w-full max-h-64 object-contain mx-auto rounded-lg shadow-sm"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => setCurrentImageIndex((prev: number) => prev > 0 ? prev - 1 : businessImages.photos.length - 1)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                          </svg>
-                          Anterior
-                        </button>
-                        
-                        {/* Indicadores de puntos */}
-                        <div className="flex gap-2">
-                          {businessImages.photos.map((_, index) => (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentImageIndex(index)}
-                              className={`w-3 h-3 rounded-full transition-colors ${
-                                index === currentImageIndex 
-                                  ? 'bg-blue-600' 
-                                  : 'bg-gray-300 hover:bg-gray-400'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        
-                        <button
-                          onClick={() => setCurrentImageIndex((prev: number) => prev < businessImages.photos.length - 1 ? prev + 1 : 0)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          Siguiente
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Miniaturas */}
-                    {businessImages.photos.length > 1 && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                          {businessImages.photos.map((photo, index) => (
-                            <button
-                              key={photo.id}
-                              onClick={() => setCurrentImageIndex(index)}
-                              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                                index === currentImageIndex 
-                                  ? 'border-blue-500' 
-                                  : 'border-gray-200 hover:border-gray-400'
-                              }`}
-                            >
-                              <img 
-                                src={photo.url} 
-                                alt={`Miniatura ${index + 1}`} 
-                                className="w-full h-full object-cover"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Mensaje cuando no hay imágenes */}
-                {(!businessImages?.logo && (!businessImages?.photos || businessImages.photos.length === 0)) && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                      </svg>
-                    </div>
-                    <p className="text-gray-500 text-lg">No hay imágenes disponibles</p>
-                    <p className="text-gray-400 text-sm mt-2">Este negocio no ha subido logo ni fotos</p>
-                  </div>
-                )}
-
-                {/* Botón de regreso */}
-                <div className="flex justify-center pt-4 border-t">
-                  <button
-                    onClick={() => {
-                      setShowImagesModal(false);
-                      setBusinessImages(null);
-                      setCurrentImageIndex(0);
-                    }}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-                    </svg>
-                    Regresar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Modal para editar negocio */}
       {showEditModal && selectedNegocio && (
         <div className="locales-modal-overlay">
@@ -1859,7 +1686,7 @@ const loadBusinessImages = async (businessId: number) => {
 
                 console.log('✏️ Editando negocio:', negocioData);
 
-                const response = await apiService.request(`/business/${selectedNegocio.id}`, {
+                const response = await apiService.request<BusinessAPI>(`/business/${selectedNegocio.id}`, {
                   method: 'PUT',
                   body: JSON.stringify(negocioData)
                 });
@@ -1962,7 +1789,7 @@ const loadBusinessImages = async (businessId: number) => {
                   </label>
                   <select
                     value={newNegocio.salePlace}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, salePlace: e.target.value as 'FERIAS' | 'LOCAL' | 'DOMICILIO' | 'ONLINE' })}
+                    onChange={(e) => setNewNegocio({ ...newNegocio, salePlace: e.target.value as any })}
                     className="locales-form-select"
                     disabled={!apiService.isAuthenticated() || loading}
                   >
@@ -1978,7 +1805,7 @@ const loadBusinessImages = async (businessId: number) => {
                   </label>
                   <select
                     value={newNegocio.deliveryService}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, deliveryService: e.target.value as 'BAJO_PEDIDO' | 'DISPONIBLE' | 'NO_DISPONIBLE' })}
+                    onChange={(e) => setNewNegocio({ ...newNegocio, deliveryService: e.target.value as any })}
                     className="locales-form-select"
                     disabled={!apiService.isAuthenticated() || loading}
                   >
@@ -2064,662 +1891,6 @@ const loadBusinessImages = async (businessId: number) => {
         </div>
       )}
     </div>
-  );
-
-  useEffect(() => {
-    loadNegocios();
-  }, []);
-
-  if (loading && negocios.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando locales comerciales...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">❌</div>
-          <p className="text-gray-600">{error}</p>
-          <button 
-            onClick={() => loadNegocios()}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="locales-comerciales-container">
-      <div className="locales-header">
-        <h1 className="locales-title">Locales Comerciales</h1>
-        <p className="locales-subtitle">Gestión de locales comerciales registrados</p>
-      </div>
-
-      <div className="locales-grid">
-        {negocios.map((negocio) => (
-          <div key={negocio.id} className="locales-card">
-            <div className="locales-card-header">
-              <h3 className="locales-card-title">{negocio.commercialName}</h3>
-              <span className={`locales-status-badge ${
-                negocio.validationStatus === 'PENDING' ? 'locales-status-pending' :
-                negocio.validationStatus === 'APPROVED' ? 'locales-status-approved' :
-                'locales-status-rejected'
-              }`}>
-                {negocio.validationStatus === 'PENDING' ? 'Pendiente' :
-                 negocio.validationStatus === 'APPROVED' ? 'Aprobado' :
-                 'Rechazado'}
-              </span>
-            </div>
-
-            <div className="locales-card-content">
-              <p><strong>Representante:</strong> {negocio.user?.name || 'No especificado'}</p>
-              <p><strong>Teléfono:</strong> {negocio.phone || 'No especificado'}</p>
-              <p><strong>Sector:</strong> {negocio.parishCommunitySector || 'No especificado'}</p>
-            </div>
-
-            <div className="locales-card-actions">
-              <button
-                onClick={() => {
-                  setSelectedNegocio(negocio);
-                  setShowViewModal(true);
-                }}
-                className="locales-view-button"
-              >
-                Ver Detalles
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedNegocio(negocio);
-                  setNewNegocio({
-                    commercialName: negocio.commercialName || '',
-                    representativeName: negocio.user?.name || '',
-                    cedulaOrRuc: negocio.user?.identification || '',
-                    phone: negocio.phone || '',
-                    email: negocio.user?.email || '',
-                    parishCommunitySector: negocio.parishCommunitySector || '',
-                    facebook: negocio.facebook || '',
-                    instagram: negocio.instagram || '',
-                    tiktok: negocio.tiktok || '',
-                    website: negocio.website || '',
-                    description: negocio.description || '',
-                    productsServices: negocio.productsServices || '',
-                    acceptsWhatsappOrders: negocio.acceptsWhatsappOrders || false,
-                    deliveryService: negocio.deliveryService || 'BAJO_PEDIDO',
-                    salePlace: negocio.salePlace || 'LOCAL',
-                    categoryId: negocio.category?.id || 1
-                  });
-                  setShowEditModal(true);
-                }}
-                className="locales-edit-button"
-              >
-                Editar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {negocios.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No hay locales comerciales registrados</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default LocalesComerciales; => window.open(businessImages.logo!, '_blank')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                          </svg>
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = businessImages.logo!;
-                            link.download = `logo-${selectedNegocio.commercialName}.jpg`;
-                            link.click();
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                          </svg>
-                          Descargar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Fotos del Carrusel */}
-                {businessImages?.photos && businessImages.photos.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-md p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-purple-100 p-2 rounded-full">
-                          <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                          </svg>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Galería de Fotos</h3>
-                          <p className="text-sm text-gray-600">{businessImages.photos.length} imagen{businessImages.photos.length !== 1 ? 'es' : ''} disponible{businessImages.photos.length !== 1 ? 's' : ''}</p>
-                        </div>
-                      </div>
-                      {businessImages.photos.length > 1 && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{currentImageIndex + 1} de {businessImages.photos.length}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Imagen Principal */}
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="flex-1 text-center">
-                        <img 
-                          src={businessImages.photos[currentImageIndex]?.url} 
-                          alt={`Foto ${currentImageIndex + 1} del negocio`} 
-                          className="max-w-full max-h-96 object-contain mx-auto rounded-lg shadow-sm"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => window.open(businessImages.photos[currentImageIndex]?.url, '_blank')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                          </svg>
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = businessImages.photos[currentImageIndex]?.url;
-                            link.download = `foto-${currentImageIndex + 1}-${selectedNegocio.commercialName}.jpg`;
-                            link.click();
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
-                          </svg>
-                          Descargar
-                        </button>
-                      </div>
-                    </div>
-
-                   {/* Controles de Navegación */}
-                    {businessImages.photos.length > 1 && (
-                      <div className="flex justify-center items-center gap-4">
-                        <button
-                          onClick={() => setCurrentImageIndex((prev: number) => prev > 0 ? prev - 1 : businessImages.photos.length - 1)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                          </svg>
-                          Anterior
-                        </button>
-                        
-                        {/* Indicadores de puntos */}
-                        <div className="flex gap-2">
-                          {businessImages.photos.map((_, index) => (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentImageIndex(index)}
-                              className={`w-3 h-3 rounded-full transition-colors ${
-                                index === currentImageIndex 
-                                  ? 'bg-blue-600' 
-                                  : 'bg-gray-300 hover:bg-gray-400'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        
-                        <button
-                          onClick={() => setCurrentImageIndex((prev: number) => prev < businessImages.photos.length - 1 ? prev + 1 : 0)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                        >
-                          Siguiente
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Miniaturas */}
-                    {businessImages.photos.length > 1 && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                          {businessImages.photos.map((photo, index) => (
-                            <button
-                              key={photo.id}
-                              onClick={() => setCurrentImageIndex(index)}
-                              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                                index === currentImageIndex 
-                                  ? 'border-blue-500' 
-                                  : 'border-gray-200 hover:border-gray-400'
-                              }`}
-                            >
-                              <img 
-                                src={photo.url} 
-                                alt={`Miniatura ${index + 1}`} 
-                                className="w-full h-full object-cover"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Mensaje cuando no hay imágenes */}
-                {(!businessImages?.logo && (!businessImages?.photos || businessImages.photos.length === 0)) && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                      </svg>
-                    </div>
-                    <p className="text-gray-500 text-lg">No hay imágenes disponibles</p>
-                    <p className="text-gray-400 text-sm mt-2">Este negocio no ha subido logo ni fotos</p>
-                  </div>
-                )}
-
-                {/* Botón de regreso */}
-                <div className="flex justify-center pt-4 border-t">
-                  <button
-                    onClick={() => {
-                      setShowImagesModal(false);
-                      setBusinessImages(null);
-                      setCurrentImageIndex(0);
-                    }}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded flex items-center gap-2 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-                    </svg>
-                    Regresar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal para editar negocio */}
-      {showEditModal && selectedNegocio && (
-        <div className="locales-modal-overlay">
-          <div className="locales-modal max-w-4xl">
-            <h2 className="locales-modal-title">Editar Local: {selectedNegocio.commercialName}</h2>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-
-              if (!newNegocio.commercialName.trim() || !newNegocio.representativeName.trim()) {
-                alert('Nombre comercial y representante son requeridos');
-                return;
-              }
-
-              try {
-                if (!verificarToken()) return;
-
-                setLoading(true);
-                const negocioData = {
-                  commercialName: newNegocio.commercialName.trim(),
-                  representativeName: newNegocio.representativeName.trim(),
-                  cedulaOrRuc: newNegocio.cedulaOrRuc.trim(),
-                  phone: newNegocio.phone.trim(),
-                  email: newNegocio.email.trim(),
-                  parishCommunitySector: newNegocio.parishCommunitySector.trim(),
-                  facebook: newNegocio.facebook.trim(),
-                  instagram: newNegocio.instagram.trim(),
-                  tiktok: newNegocio.tiktok.trim(),
-                  website: newNegocio.website.trim(),
-                  description: newNegocio.description.trim(),
-                  productsServices: newNegocio.productsServices.trim(),
-                  acceptsWhatsappOrders: newNegocio.acceptsWhatsappOrders,
-                  deliveryService: newNegocio.deliveryService,
-                  salePlace: newNegocio.salePlace,
-                  categoryId: newNegocio.categoryId
-                };
-
-                console.log('✏️ Editando negocio:', negocioData);
-
-                const response = await apiService.request(`/business/${selectedNegocio.id}`, {
-                  method: 'PUT',
-                  body: JSON.stringify(negocioData)
-                });
-
-                console.log('📡 Respuesta de edición:', response);
-
-                if (response.success) {
-                  console.log('🎉 Negocio editado exitosamente');
-                  setShowEditModal(false);
-                  setSelectedNegocio(null);
-                  await loadNegocios();
-                  alert('Negocio editado exitosamente');
-                } else {
-                  console.error('❌ Error al editar:', response.error);
-                  if (response.status === 401) {
-                    setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
-                    apiService.clearToken();
-                  } else {
-                    alert(response.error || 'Error al editar negocio');
-                  }
-                }
-              } catch (err) {
-                console.error('💥 Error de conexión al editar negocio:', err);
-                alert('Error de conexión al editar negocio');
-              } finally {
-                setLoading(false);
-              }
-            }} className="locales-modal-form">
-              <div className="locales-form-grid">
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Nombre Comercial *
-                  </label>
-                  <input
-                    type="text"
-                    value={newNegocio.commercialName}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, commercialName: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="Ingrese el nombre comercial"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Representante *
-                  </label>
-                  <input
-                    type="text"
-                    value={newNegocio.representativeName}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, representativeName: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="Nombre del representante"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Cédula/RUC
-                  </label>
-                  <input
-                    type="text"
-                    value={newNegocio.cedulaOrRuc}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, cedulaOrRuc: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="1234567890"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    value={newNegocio.phone}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, phone: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="0987654321"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={newNegocio.email}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, email: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="email@ejemplo.com"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Lugar de Venta
-                  </label>
-                  <select
-                    value={newNegocio.salePlace}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, salePlace: e.target.value as 'FERIAS' | 'LOCAL' | 'DOMICILIO' | 'ONLINE' })}
-                    className="locales-form-select"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  >
-                    <option value="LOCAL">Local</option>
-                    <option value="FERIAS">Ferias</option>
-                    <option value="DOMICILIO">Domicilio</option>
-                    <option value="ONLINE">Online</option>
-                  </select>
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Servicio de Delivery
-                  </label>
-                  <select
-                    value={newNegocio.deliveryService}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, deliveryService: e.target.value as 'BAJO_PEDIDO' | 'DISPONIBLE' | 'NO_DISPONIBLE' })}
-                    className="locales-form-select"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  >
-                    <option value="BAJO_PEDIDO">Bajo pedido</option>
-                    <option value="DISPONIBLE">Disponible</option>
-                    <option value="NO_DISPONIBLE">No disponible</option>
-                  </select>
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label">
-                    Sector/Parroquia
-                  </label>
-                  <input
-                    type="text"
-                    value={newNegocio.parishCommunitySector}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, parishCommunitySector: e.target.value })}
-                    className="locales-form-input"
-                    placeholder="Sector o parroquia"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group locales-form-full-width">
-                  <label className="locales-form-label">
-                    Descripción
-                  </label>
-                  <textarea
-                    value={newNegocio.description}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, description: e.target.value })}
-                    className="locales-form-input"
-                    rows={3}
-                    placeholder="Descripción del negocio"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group locales-form-full-width">
-                  <label className="locales-form-label">
-                    Productos/Servicios
-                  </label>
-                  <textarea
-                    value={newNegocio.productsServices}
-                    onChange={(e) => setNewNegocio({ ...newNegocio, productsServices: e.target.value })}
-                    className="locales-form-input"
-                    rows={3}
-                    placeholder="Productos y servicios que ofrece"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-                <div className="locales-form-group">
-                  <label className="locales-form-label flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={newNegocio.acceptsWhatsappOrders}
-                      onChange={(e) => setNewNegocio({ ...newNegocio, acceptsWhatsappOrders: e.target.checked })}
-                      className="mr-2"
-                      disabled={!apiService.isAuthenticated() || loading}
-                    />
-                    Acepta pedidos por WhatsApp
-                  </label>
-                </div>
-              </div>
-              <div className="locales-modal-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedNegocio(null);
-                  }}
-                  className="locales-cancel-button"
-                  disabled={loading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="locales-submit-button"
-                  disabled={loading || !apiService.isAuthenticated()}
-                >
-                  {loading ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  useEffect(() => {
-    loadNegocios();
-  }, []);
-
-  if (loading && negocios.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando locales comerciales...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-500 text-xl mb-4">❌</div>
-          <p className="text-gray-600">{error}</p>
-          <button 
-            onClick={() => loadNegocios()}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="locales-comerciales-container">
-      <div className="locales-header">
-        <h1 className="locales-title">Locales Comerciales</h1>
-        <p className="locales-subtitle">Gestión de locales comerciales registrados</p>
-      </div>
-
-      <div className="locales-grid">
-        {negocios.map((negocio) => (
-          <div key={negocio.id} className="locales-card">
-            <div className="locales-card-header">
-              <h3 className="locales-card-title">{negocio.commercialName}</h3>
-              <span className={`locales-status-badge ${
-                negocio.validationStatus === 'PENDING' ? 'locales-status-pending' :
-                negocio.validationStatus === 'APPROVED' ? 'locales-status-approved' :
-                'locales-status-rejected'
-              }`}>
-                {negocio.validationStatus === 'PENDING' ? 'Pendiente' :
-                 negocio.validationStatus === 'APPROVED' ? 'Aprobado' :
-                 'Rechazado'}
-              </span>
-            </div>
-
-            <div className="locales-card-content">
-              <p><strong>Representante:</strong> {negocio.user?.name || 'No especificado'}</p>
-              <p><strong>Teléfono:</strong> {negocio.phone || 'No especificado'}</p>
-              <p><strong>Sector:</strong> {negocio.parishCommunitySector || 'No especificado'}</p>
-            </div>
-
-            <div className="locales-card-actions">
-              <button
-                onClick={() => {
-                  setSelectedNegocio(negocio);
-                  setShowViewModal(true);
-                }}
-                className="locales-view-button"
-              >
-                Ver Detalles
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedNegocio(negocio);
-                  setNewNegocio({
-                    commercialName: negocio.commercialName || '',
-                    representativeName: negocio.user?.name || '',
-                    cedulaOrRuc: negocio.user?.identification || '',
-                    phone: negocio.phone || '',
-                    email: negocio.user?.email || '',
-                    parishCommunitySector: negocio.parishCommunitySector || '',
-                    facebook: negocio.facebook || '',
-                    instagram: negocio.instagram || '',
-                    tiktok: negocio.tiktok || '',
-                    website: negocio.website || '',
-                    description: negocio.description || '',
-                    productsServices: negocio.productsServices || '',
-                    acceptsWhatsappOrders: negocio.acceptsWhatsappOrders || false,
-                    deliveryService: negocio.deliveryService || 'BAJO_PEDIDO',
-                    salePlace: negocio.salePlace || 'LOCAL',
-                    categoryId: negocio.category?.id || 1
-                  });
-                  setShowEditModal(true);
-                }}
-                className="locales-edit-button"
-              >
-                Editar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {negocios.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No hay locales comerciales registrados</p>
-        </div>
-      )}
-    </div>
-    
   );
 };
 

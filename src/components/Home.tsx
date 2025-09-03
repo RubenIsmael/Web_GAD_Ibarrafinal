@@ -34,6 +34,26 @@ const Home: React.FC<HomeProps> = ({ userData }) => {
     { icon: Award, label: 'Proyectos Aprobados', value: '234', color: 'bg-orange-500' }
   ];
 
+  // Obtener saludo según la hora (igual que en Sidebar)
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour >= 5 && hour < 12) {
+      return 'Buenos días';
+    } else if (hour >= 12 && hour < 18) {
+      return 'Buenas tardes';
+    } else {
+      return 'Buenas noches';
+    }
+  };
+
+  // Función para obtener el saludo completo con username (igual que en Sidebar)
+  const getGreetingMessage = (): string => {
+    const greeting = getGreeting();
+    const username = userData?.username || 'Usuario'; // Valor por defecto como en Sidebar
+    
+    return `${greeting}, ${username}`;
+  };
+
   useEffect(() => {
     setMounted(true);
     const quoteInterval = setInterval(() => {
@@ -59,14 +79,14 @@ const Home: React.FC<HomeProps> = ({ userData }) => {
           <div className="home-header-content">
             <div>
               <h1 className="home-title">
-                {userData?.username ? `Bienvenido, ${userData.username}` : 'Bienvenido al Sistema Municipal'}
+                {getGreetingMessage()}
               </h1>
               <p className="home-subtitle">
                 Gestión de Locales Comerciales, Emprendimientos y Ferias - GAD Municipal de Ibarra
               </p>
             </div>
             <div className="home-date">
-              {/* Agregar saludo personalizado si hay usuario */}
+              {/* Mostrar información del usuario si está disponible */}
               {userData?.username && (
                 <div className="user-welcome">
                   <User size={16} className="user-icon" />

@@ -1,4 +1,4 @@
-// components/login/ApiService.ts -
+// components/login/ApiService.ts - VERSIÓN UNIFICADA Y MEJORADA CON SOPORTE MULTIPART
 import { 
   LoginRequest, 
   LoginResponse, 
@@ -2952,76 +2952,7 @@ export class ApiService {
       tokenExpired: this.isTokenExpired()
     };
   }
-/**
- * Carga las imágenes de un negocio específico
- * @param businessId ID del negocio
- * @returns Información completa del negocio con imágenes
- */
-public async getBusinessWithImages(businessId: number): Promise<ApiResponse<{
-  id: number;
-  commercialName: string;
-  logoUrl?: string;
-  photos: Array<{
-    id: number;
-    url: string;
-    fileType: string;
-    publicId: string;
-    photoType: string;
-  }>;
-}>> {
-  console.log('🖼️ Obteniendo negocio con imágenes:', businessId);
-  
-  try {
-    const response = await this.request<any>(`/admin/business/${businessId}`, {
-      method: 'GET'
-    });
-    
-    if (response.success && response.data) {
-      console.log('✅ Negocio con imágenes obtenido exitosamente');
-      return {
-        success: true,
-        data: response.data,
-        message: 'Negocio con imágenes obtenido exitosamente'
-      };
-    } else {
-      console.error('❌ Error obteniendo negocio con imágenes:', response.error);
-      return response;
-    }
-  } catch (error) {
-    console.error('💥 Error de conexión obteniendo negocio con imágenes:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Error de conexión',
-      message: 'Error obteniendo negocio con imágenes',
-      status: 500
-    };
-  }
-}
 
-/**
- * Convierte una URL de imagen a base64 para descarga
- * @param imageUrl URL de la imagen
- * @returns Imagen en formato base64
- */
-public async convertImageToBase64(imageUrl: string): Promise<string> {
-  try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        resolve(base64.split(',')[1]); 
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error('Error convirtiendo imagen a base64:', error);
-    throw error;
-  }
-}
   /**
    * Log de información útil para debugging
    */
