@@ -479,14 +479,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             © 2025 GAD Municipal de Ibarra
           </p>
           <p className="version">
-            Versión 1.1.6 - 👤 Captura de nombre de usuario implementada
+            Versión 1.2.6 {/*- 👤 Ing. Verdesoto V. Ruben Ismael*/}
           </p>
-          <p className="version">
+         {/* <p className="version">
             Desarrollador Ing. Verdesoto V. Ruben Ismael,   
                           Ing. Zambrano S. Nathaly Licett, 
                           Ing. Suarez A. Fernando Anderson, 
                           Ing. López B. Israel Isaias, 
-          </p>
+          </p>*/}
         </div>
       </div>
     </div>

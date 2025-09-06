@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, Tag, Image, Clock, X, Check } from 'lucide-react';
+import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, Tag, Image, Clock, X, Check, ExternalLink } from 'lucide-react';
 import { ApiService } from './login/ApiService';
+import html2canvas from 'html2canvas';
 import '../styles/promociones.css';
 
 // Usar la misma instancia global del servicio
@@ -345,7 +346,7 @@ setPromociones(prevPromociones =>
       const nuevaPromocion: Promocion = {
         id: Date.now(),
         ...newPromocion,
-        estado: 'PENDIENTE'
+        estado: 'ACTIVA'
       };
 
              // Aplicar LIFO: nueva promoción al principio
@@ -388,10 +389,15 @@ setPromociones(prevPromociones =>
 
          // Filtrar por estado
      if (filterStatus !== 'all') {
-       const estadoFiltro = filterStatus === 'rechazada' ? 'RECHAZADA' : filterStatus.toUpperCase();
-       promocionesFiltradas = promocionesFiltradas.filter(promocion => 
-         promocion.estado === estadoFiltro
-       );
+       if (filterStatus === 'activa') {
+         promocionesFiltradas = promocionesFiltradas.filter(promocion => 
+           getEstadoReal(promocion) === 'ACTIVA'
+         );
+       } else if (filterStatus === 'caducada') {
+         promocionesFiltradas = promocionesFiltradas.filter(promocion => 
+           getEstadoReal(promocion) === 'CADUCADA'
+         );
+       }
      }
 
     // Filtrar por categoría
@@ -469,27 +475,114 @@ setPromociones(prevPromociones =>
     }
   }, [promociones, filtrarPromociones]);
 
-     const getStatusColor = (estado: string): string => {
-     switch (estado) {
-       case 'ACTIVA': return 'bg-green-100 text-green-800';
-       case 'PENDIENTE': return 'bg-yellow-100 text-yellow-800';
-       case 'RECHAZADA': return 'bg-red-100 text-red-800';
-       default: return 'bg-gray-100 text-gray-800';
-     }
-   };
+  // Efecto para actualizar estados automáticamente cada minuto
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Forzar re-render para actualizar estados basados en fechas
+      setPromociones(prev => [...prev]);
+    }, 60000); // Actualizar cada minuto
 
-     const getStatusText = (estado: string): string => {
-     switch (estado) {
-       case 'ACTIVA': return 'Activa';
-       case 'PENDIENTE': return 'Pendiente';
-       case 'RECHAZADA': return 'Rechazada';
-       default: return estado;
-     }
-   };
+    return () => clearInterval(interval);
+  }, []);
+
+  // Función para verificar el estado de una promoción basado en fechas
+  const verificarEstadoPorFechas = (fechaInicio: string, fechaFin: string): 'ACTIVA' | 'CADUCADA' => {
+    const fechaActual = new Date();
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+    
+    // Verificar si la fecha actual está entre inicio y fin
+    if (fechaActual >= inicio && fechaActual <= fin) {
+      return 'ACTIVA';
+    } else {
+      return 'CADUCADA';
+    }
+  };
+
+  // Función para obtener el estado real de una promoción
+  const getEstadoReal = (promocion: Promocion): 'ACTIVA' | 'CADUCADA' => {
+    return verificarEstadoPorFechas(promocion.fechaInicio, promocion.fechaFin);
+  };
+
+  const getStatusColor = (promocion: Promocion): string => {
+    const estadoReal = getEstadoReal(promocion);
+    switch (estadoReal) {
+      case 'ACTIVA': return 'bg-green-100 text-green-800';
+      case 'CADUCADA': return 'bg-red-100 text-red-800';
+      default: return 'bg-red-100 text-red-800';
+    }
+  };
+
+  const getStatusText = (promocion: Promocion): string => {
+    const estadoReal = getEstadoReal(promocion);
+    switch (estadoReal) {
+      case 'ACTIVA': return 'Activa';
+      case 'CADUCADA': return 'Caducada';
+      default: return 'Caducada';
+    }
+  };
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('es-ES');
   };
+
+  // Función para descargar imagen
+  const descargarImagen = async (url: string, nombre: string) => {
+    try {
+      // Obtener la imagen como blob con headers específicos
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'image/*',
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        throw new Error('No se pudo obtener la imagen');
+      }
+      
+      const blob = await response.blob();
+      
+      // Crear URL del blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Crear enlace de descarga con atributos específicos
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${nombre}.jpg`;
+      link.style.display = 'none';
+      link.setAttribute('download', `${nombre}.jpg`);
+      
+      // Agregar al DOM, hacer clic y remover
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpiar URL del blob después de un breve delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error descargando imagen:', error);
+      // Fallback: forzar descarga con parámetros adicionales
+      const link = document.createElement('a');
+      link.href = `${url}?download=1&filename=${nombre}.jpg`;
+      link.download = `${nombre}.jpg`;
+      link.target = '_self';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // Función para ver imagen en línea
+  const verImagenEnLinea = (url: string) => {
+    window.open(url, '_blank');
+  };
+
 
   // Función para validar URLs de imágenes
   const isValidImageUrl = (url: string): boolean => {
@@ -724,7 +817,7 @@ setPromociones(prevPromociones =>
           <div className="promociones-stat-content">
             <div>
               <p className="promociones-stat-text-sm">Activas</p>
-              <p className="promociones-stat-text-lg">{promociones.filter(p => p.estado === 'ACTIVA').length}</p>
+              <p className="promociones-stat-text-lg">{promociones.filter(p => getEstadoReal(p) === 'ACTIVA').length}</p>
             </div>
             <div className="promociones-stat-icon-container bg-green-100">
               <Tag className="promociones-stat-icon text-green-600" />
@@ -734,25 +827,14 @@ setPromociones(prevPromociones =>
         <div className="promociones-stat-card">
           <div className="promociones-stat-content">
             <div>
-              <p className="promociones-stat-text-sm">Pendientes</p>
-              <p className="promociones-stat-text-lg">{promociones.filter(p => p.estado === 'PENDIENTE').length}</p>
+              <p className="promociones-stat-text-sm">Caducadas</p>
+              <p className="promociones-stat-text-lg">{promociones.filter(p => getEstadoReal(p) === 'CADUCADA').length}</p>
             </div>
-            <div className="promociones-stat-icon-container bg-yellow-100">
-              <Clock className="promociones-stat-icon text-yellow-600" />
+            <div className="promociones-stat-icon-container bg-red-100">
+              <X className="promociones-stat-icon text-red-600" />
             </div>
           </div>
         </div>
-                 <div className="promociones-stat-card">
-           <div className="promociones-stat-content">
-             <div>
-               <p className="promociones-stat-text-sm">Rechazadas</p>
-               <p className="promociones-stat-text-lg">{promociones.filter(p => p.estado === 'RECHAZADA').length}</p>
-             </div>
-             <div className="promociones-stat-icon-container bg-red-100">
-               <X className="promociones-stat-icon text-red-600" />
-             </div>
-           </div>
-         </div>
       </div>
 
       {/* Filtros y búsqueda */}
@@ -781,8 +863,7 @@ setPromociones(prevPromociones =>
               >
                                  <option value="all">Todos los estados</option>
                  <option value="activa">Activa</option>
-                 <option value="pendiente">Pendiente</option>
-                 <option value="rechazada">Rechazada</option>
+                 <option value="caducada">Caducada</option>
               </select>
             </div>
 
@@ -889,8 +970,8 @@ setPromociones(prevPromociones =>
                   <div className="promociones-card-info">
                     <div className="promociones-card-title">
                       <h3 className="promociones-card-name">{promocion.nombreLocal}</h3>
-                      <span className={`promociones-card-badge ${getStatusColor(promocion.estado)}`}>
-                        {getStatusText(promocion.estado)}
+                      <span className={`promociones-card-badge ${getStatusColor(promocion)}`}>
+                        {getStatusText(promocion)}
                       </span>
                       <span className="promociones-card-badge bg-blue-100 text-blue-800">
                         {promocion.categoria}
@@ -1351,8 +1432,8 @@ setPromociones(prevPromociones =>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedPromocion.estado)}`}>
-                        {getStatusText(selectedPromocion.estado)}
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedPromocion)}`}>
+                        {getStatusText(selectedPromocion)}
                       </span>
                     </div>
                     <div>
@@ -1453,6 +1534,24 @@ setPromociones(prevPromociones =>
                             <span className="text-gray-500 text-sm ml-2">Imagen no disponible</span>
                           </div>
                         </div>
+                        <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                          <button
+                            onClick={() => verImagenEnLinea(selectedPromocion.imagenPromocion!)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                            title="Ver imagen en línea"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Ver en línea
+                          </button>
+                          <button
+                            onClick={() => descargarImagen(selectedPromocion.imagenPromocion!, `promocion-${selectedPromocion.nombreLocal}`)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                            title="Descargar imagen"
+                          >
+                            <Download className="w-3 h-3" />
+                            Descargar
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1461,8 +1560,8 @@ setPromociones(prevPromociones =>
             </div>
 
             <div className="flex justify-end items-center mt-6 pt-4 border-t">
-              {/* Botones de Aceptar y Rechazar solo para promociones pendientes */}
-              {selectedPromocion.estado === 'PENDIENTE' && (
+              {/* Botones de Aceptar y Rechazar solo para promociones no activas */}
+              {getEstadoReal(selectedPromocion) !== 'ACTIVA' && (
                 <div className="flex gap-3 mr-auto">
                   <button
                     onClick={() => {
@@ -1471,10 +1570,10 @@ setPromociones(prevPromociones =>
                       setSelectedPromocion(null);
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                    title="Aceptar promoción"
+                    title="Activar promoción"
                   >
                     <Check className="w-4 h-4" />
-                    <span>Aceptar</span>
+                    <span>Activar</span>
                   </button>
                   
                   <button
@@ -1484,10 +1583,10 @@ setPromociones(prevPromociones =>
                       setSelectedPromocion(null);
                     }}
                     className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                    title="Rechazar promoción"
+                    title="Marcar como caducada"
                   >
                     <X className="w-4 h-4" />
-                    <span>Rechazar</span>
+                    <span>Caducar</span>
                   </button>
                 </div>
               )}
@@ -1505,6 +1604,7 @@ setPromociones(prevPromociones =>
           </div>
         </div>
       )}
+
     </div>
   );
 };

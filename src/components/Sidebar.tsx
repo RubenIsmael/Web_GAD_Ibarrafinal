@@ -31,7 +31,8 @@ const Sidebar: React.FC<SidebarProps> = ({
    // { id: 'requerimientos', label: 'Requerimientos', icon: FileText },
     { id: 'promociones', label: 'Promociones', icon: MessageSquare }, 
     { id: 'comerciantes', label: 'Comerciantes', icon: FolderOpen },
-    { id: 'ferias', label: 'Ferias', icon: Calendar },
+    //{ id: 'ferias', label: 'Ferias', icon: Calendar },
+    { id: 'soporte', label: 'soporte técnico', icon: Calendar },
     { id: 'locales', label: 'Locales Comerciales', icon: Store },
   ];
 

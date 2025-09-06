@@ -1,0 +1,464 @@
+/* Soporte.css - Diseño corporativo GAD Ibarra */
+
+.soporte-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 2rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.soporte-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+.soporte-title-section {
+  margin-bottom: 1.5rem;
+}
+
+.soporte-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.soporte-subtitle {
+  font-size: 1.1rem;
+  color: #6b7280;
+  font-weight: 400;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.soporte-quote {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(185, 28, 28, 0.05));
+  border-left: 4px solid #dc2626;
+  padding: 1rem 1.5rem;
+  border-radius: 0 8px 8px 0;
+  margin: 0 auto;
+  max-width: 500px;
+  font-style: italic;
+  color: #374151;
+}
+
+.soporte-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 16px -4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 0.75rem;
+  border-radius: 10px;
+  width: 48px;
+  height: 48px;
+}
+
+.stat-content h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.stat-content p {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.soporte-team-section {
+  margin-bottom: 3rem;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 2rem;
+}
+
+.support-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.support-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.support-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.support-card.blue {
+  border-top: 4px solid #3b82f6;
+}
+
+.support-card.green {
+  border-top: 4px solid #10b981;
+}
+
+.support-card.purple {
+  border-top: 4px solid #8b5cf6;
+}
+
+.card-header {
+  padding: 1.5rem 1.5rem 1rem;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.card-icon-container {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.card-icon {
+  color: #374151;
+}
+
+.support-card.blue .card-icon {
+  color: #3b82f6;
+}
+
+.support-card.green .card-icon {
+  color: #10b981;
+}
+
+.support-card.purple .card-icon {
+  color: #8b5cf6;
+}
+
+.card-badge {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.support-card.blue .card-badge {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.support-card.green .card-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.support-card.purple .card-badge {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+.card-content {
+  padding: 0 1.5rem 1rem;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.card-description {
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.card-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.contact-item svg {
+  color: #9ca3af;
+}
+
+.card-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.whatsapp-button {
+  width: 100%;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.whatsapp-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #128c7e, #075e54);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-button:disabled {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.soporte-info-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.info-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #dc2626;
+}
+
+.info-card h3 {
+  color: #1f2937;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.info-content {
+  color: #374151;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+/* Estilos para tarjeta de horarios centrada */
+.horarios-card {
+  text-align: center;
+}
+
+.horarios-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.horarios-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.whatsapp-icon {
+  color: #25d366;
+  margin-bottom: 0.5rem;
+}
+
+.horarios-text p {
+  margin: 0.25rem 0;
+  font-size: 1rem;
+}
+
+.horarios-text p:first-of-type {
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.horarios-text p:last-of-type {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.info-item p {
+  margin: 0.25rem 0;
+}
+
+.support-types {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.support-types li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 1.1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.support-types li:last-child {
+  border-bottom: none;
+}
+
+.soporte-footer-note {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.soporte-footer-note p {
+  color: #1e40af;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .soporte-container {
+    padding: 1rem;
+  }
+
+  .soporte-title {
+    font-size: 2rem;
+  }
+
+  .support-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .soporte-stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .soporte-info-section {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .card-badge {
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .soporte-container {
+    padding: 0.5rem;
+  }
+
+  .support-card {
+    margin: 0 0.5rem;
+  }
+
+  .soporte-title {
+    font-size: 1.75rem;
+  }
+
+  .soporte-subtitle {
+    font-size: 1rem;
+  }
+}
+
+/* Animaciones suaves */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.support-card {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.support-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.support-card:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.support-card:nth-child(3) {
+  animation-delay: 0.3s;
+}
