@@ -35,12 +35,12 @@ const Soporte: React.FC = () => {
     },
     {
       id: 3,
-      name: "Ing. Justin Moreira",
-      area: "Base de Datos",
-      phone: "xxxxx",
-      mail: "xxxxx",
-      location: "xxxxxx, Ecuador",
-      description: "Administrador de bases de datos y sistemas de información",
+      name: "Ing. Moises Omar Loor Vásquez",
+      area: "Desarrollador Backend.",
+      phone: "0994601636",
+      mail: "moisesloor122@gmail.com",
+      location: "Santo Domingo, Ecuado",
+      description: "Administrador de bases de datos",
       icon: Database,
       color: "blue"
     }

@@ -91,7 +91,24 @@ const validarEstadoNegocio = (estado: string | undefined): 'PENDING' | 'APPROVED
       return 'PENDING';
   }
 };
+// Estados para filtros y búsqueda
+const [searchTerm, setSearchTerm] = useState('');
+const [filterStatus, setFilterStatus] = useState('all');
 
+// Estados para paginación
+const [currentPage, setCurrentPage] = useState(0);
+const [pageSize, setPageSize] = useState(10);
+const [totalPages, setTotalPages] = useState(0);
+const [totalElements, setTotalElements] = useState(0);
+
+// Función wrapper para setCurrentPage que valida valores negativos
+const setCurrentPageSafe = (page: number) => {
+  const validPage = Math.max(0, page);
+  if (page !== validPage) {
+    console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+  }
+  setCurrentPage(validPage);
+};
 const LocalesComerciales: React.FC = () => {
   // Estados para datos
   const [negocios, setNegocios] = useState<BusinessAPI[]>([]);
@@ -102,26 +119,193 @@ const LocalesComerciales: React.FC = () => {
     aprobados: 0,
     rechazados: 0
   });
-
-  // Estados para filtros y búsqueda
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-
-  // Estados para paginación
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-
-  // Función wrapper para setCurrentPage que valida valores negativos
-  const setCurrentPageSafe = (page: number) => {
-    const validPage = Math.max(0, page);
-    if (page !== validPage) {
-      console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+const [showPhotosModal, setShowPhotosModal] = useState(false);
+const [currentPhotos, setCurrentPhotos] = useState<any[]>([]);
+const [loadingPhotos, setLoadingPhotos] = useState(false);
+const [photosError, setPhotosError] = useState<string>('');
+// Estados para modal de documentos/fotos
+const obtenerDetallesCompletos = async (businessId: number): Promise<{ photos: any[] }> => {
+  try {
+    console.log('🔍 Obteniendo detalles completos del negocio:', businessId);
+    
+    if (!verificarToken()) {
+      throw new Error('Token no válido');
     }
-    setCurrentPage(validPage);
-  };
 
+    // ESTRATEGIA 1: Intentar obtener el negocio completo desde el endpoint de administrador
+    try {
+      console.log('🔄 Intentando endpoint de administrador para obtener fotos...');
+      const adminResponse = await apiService.request(`/admin/business/${businessId}`, {
+        method: 'GET'
+      });
+
+if (adminResponse.success && adminResponse.data && (adminResponse.data as any).photos) {
+  console.log('✅ Fotos obtenidas desde endpoint de administrador:', (adminResponse.data as any).photos);
+  return { photos: (adminResponse.data as any).photos };
+}
+} catch (adminError) {
+  console.warn('⚠️ Endpoint de administrador falló:', adminError);
+}
+
+    // ESTRATEGIA 2: Intentar endpoint específico de fotos
+    try {
+      console.log('🔄 Intentando endpoint específico de fotos...');
+      const photosResponse = await apiService.request(`/business/${businessId}/photos`, {
+        method: 'GET'
+      });
+
+      if (photosResponse.success && photosResponse.data) {
+        const photos = Array.isArray(photosResponse.data) ? photosResponse.data : (photosResponse.data as any).photos || [];
+        console.log('✅ Fotos obtenidas desde endpoint específico:', photos);
+        return { photos };
+      }
+    } catch (photosError) {
+      console.warn('⚠️ Endpoint de fotos falló:', photosError);
+    }
+
+    // ESTRATEGIA 3: Buscar en los datos locales y construir desde URLs
+    console.log('🔄 Construyendo fotos desde datos locales...');
+    const negocio = negocios.find(n => n.id === businessId);
+    if (!negocio) {
+      console.warn('⚠️ Negocio no encontrado en la lista actual');
+      return { photos: [] };
+    }
+
+    // ESTRATEGIA 4: Fallback usando URLs directas del objeto negocio
+    const photos = [];
+    
+    if (negocio.cedulaFileUrl) {
+      photos.push({
+        id: `cedula_${businessId}`,
+        url: corregirURL(negocio.cedulaFileUrl),
+        fileType: 'cedula',
+        photoType: 'DOCUMENT',
+        publicId: `cedula_${businessId}`
+      });
+    }
+    
+    if (negocio.logoUrl) {
+      photos.push({
+        id: `logo_${businessId}`,
+        url: corregirURL(negocio.logoUrl),
+        fileType: 'logo',
+        photoType: 'LOGO',
+        publicId: `logo_${businessId}`
+      });
+    }
+    
+    if (negocio.signatureUrl) {
+      photos.push({
+        id: `signature_${businessId}`,
+        url: corregirURL(negocio.signatureUrl),
+        fileType: 'signature',
+        photoType: 'SIGNATURE',
+        publicId: `signature_${businessId}`
+      });
+    }
+
+    console.log('📸 Fotos construidas desde URLs directas:', photos.length);
+    return { photos };
+    
+  } catch (error) {
+    console.error('💥 Error obteniendo detalles completos:', error);
+    return { photos: [] };
+  }
+};
+
+    
+// Función para descargar imagen
+const descargarImagen = async (url: string, filename: string) => {
+  try {
+    console.log('💾 Iniciando descarga de imagen:', { url, filename });
+    
+    // Corregir la URL si es necesario
+    const urlCorregida = corregirURL(url);
+    
+    // Crear un elemento anchor temporal para la descarga
+    const link = document.createElement('a');
+    link.href = urlCorregida;
+    link.download = filename;
+    link.target = '_blank';
+    
+    // Agregar al DOM temporalmente y hacer clic
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ Descarga iniciada exitosamente');
+    
+    // Alternativa: usar fetch para descargar y crear blob
+    /*
+    try {
+      const response = await fetch(urlCorregida);
+      if (!response.ok) throw new Error('Error en la descarga');
+      
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpiar el blob URL
+      window.URL.revokeObjectURL(blobUrl);
+      
+      console.log('✅ Descarga completada exitosamente');
+    } catch (fetchError) {
+      console.warn('⚠️ Error con fetch, usando método directo:', fetchError);
+      // Fallback al método directo
+      window.open(urlCorregida, '_blank');
+    }
+    */
+    
+  } catch (error) {
+    console.error('💥 Error descargando imagen:', error);
+    
+    // Fallback: abrir en nueva pestaña
+    try {
+      window.open(url, '_blank');
+      console.log('🔄 Fallback: abriendo imagen en nueva pestaña');
+    } catch (fallbackError) {
+      console.error('💥 Error en fallback:', fallbackError);
+      alert('No se pudo descargar la imagen. Intente hacer clic derecho y "Guardar imagen como..."');
+    }
+  }
+};
+
+// Función para cargar fotos del negocio
+const cargarFotos = async (businessId: number) => {
+  try {
+    setLoadingPhotos(true);
+    setPhotosError('');
+    
+    const detalles = await obtenerDetallesCompletos(businessId);
+    
+    if (detalles && detalles.photos) {
+      setCurrentPhotos(detalles.photos);
+      console.log('📸 Fotos cargadas:', detalles.photos.length);
+    } else {
+      setCurrentPhotos([]);
+      setPhotosError('No se encontraron fotos para este negocio.');
+    }
+  } catch (err) {
+    console.error('💥 Error cargando fotos:', err);
+    setPhotosError('Error al cargar las fotos del negocio.');
+    setCurrentPhotos([]);
+  } finally {
+    setLoadingPhotos(false);
+  }
+};
+
+// Función para abrir modal de fotos
+const abrirModalFotos = async (negocio: BusinessAPI) => {
+  setSelectedNegocio(negocio);
+  setShowPhotosModal(true);
+  await cargarFotos(negocio.id);
+};
   // Función para agrupar negocios por usuario
   const agruparNegociosPorUsuario = (negocios: BusinessAPI[]) => {
     const grupos = new Map<string, BusinessAPI[]>();
@@ -1284,10 +1468,7 @@ const LocalesComerciales: React.FC = () => {
       {showDocumentsModal && selectedNegocio && (
         <div className="locales-modal-overlay" onClick={() => console.log('🔍 Modal overlay clickeado')}>
           <div className="locales-modal max-w-4xl" onClick={(e) => e.stopPropagation()}>
-           console.log('🎯 Renderizando modal de locales del usuario:', selectedNegocio?.user.name);
-
-return (
-  <div>
+        <div>
      <div className="flex justify-between items-center mb-6">
               <h2 className="locales-modal-title">
                 Locales de {selectedNegocio?.user.name || 'Usuario'}
@@ -1395,9 +1576,9 @@ return (
         </div>
       )}
 
+ {/* aqui */}
 
-
-      {/* Modal para ver detalles */}
+     {/* Modal para ver detalles */}
       {showViewModal && selectedNegocio && (
         <div className="locales-modal-overlay">
           <div className="locales-modal max-w-4xl">
@@ -1486,7 +1667,7 @@ return (
                   </div>
                 )}
                 
-                {/* Redes sociales como campo separado - SIEMPRE visible */}
+                {/* Redes sociales */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Redes Sociales</label>
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -1535,6 +1716,23 @@ return (
                     )}
                   </div>
                 </div>
+
+                {/* Documentos */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Documentos</label>
+                    <button
+                      onClick={() => abrirModalFotos(selectedNegocio)}
+                      className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs hover:bg-purple-200 transition-colors flex items-center gap-1"
+                    >
+                      <FileText className="w-3 h-3" />
+                      Ver Documentos
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Haga clic en "Ver Documentos" para acceder a las fotos y documentos del negocio
+                  </p>
+                </div>
                 
                 {selectedNegocio.productsServices && (
                   <div>
@@ -1567,7 +1765,6 @@ return (
                         if (response.success) {
                           console.log('🎉 Local aprobado exitosamente');
                           alert('Local aprobado exitosamente');
-                          // Recargar datos y cerrar modal
                           await loadNegocios();
                           setShowViewModal(false);
                           setSelectedNegocio(null);
@@ -1608,7 +1805,6 @@ return (
                         if (response.success) {
                           console.log('🎉 Local rechazado exitosamente');
                           alert('Local rechazado exitosamente');
-                          // Recargar datos y cerrar modal
                           await loadNegocios();
                           setShowViewModal(false);
                           setSelectedNegocio(null);
@@ -1638,6 +1834,148 @@ return (
                 onClick={() => {
                   setShowViewModal(false);
                   setSelectedNegocio(null);
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para ver fotos/documentos */}
+      {showPhotosModal && selectedNegocio && (
+        <div className="locales-modal-overlay">
+          <div className="locales-modal max-w-6xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="locales-modal-title">
+                Documentos de {selectedNegocio.commercialName}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPhotosModal(false);
+                  setSelectedNegocio(null);
+                  setCurrentPhotos([]);
+                  setPhotosError('');
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <span className="text-2xl font-bold">×</span>
+              </button>
+            </div>
+
+            {loadingPhotos && (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <span className="ml-2 text-gray-600">Cargando documentos...</span>
+              </div>
+            )}
+
+            {photosError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <span className="text-lg mr-2">⚠️</span>
+                <span>{photosError}</span>
+              </div>
+            )}
+
+            {!loadingPhotos && !photosError && currentPhotos.length === 0 && (
+              <div className="text-center py-8">
+                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay documentos disponibles</h3>
+                <p className="text-gray-500">
+                  Este negocio no tiene documentos o fotos cargadas en el sistema.
+                </p>
+              </div>
+            )}
+
+            {!loadingPhotos && currentPhotos.length > 0 && (
+              <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    Documentos Disponibles ({currentPhotos.length})
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Haga clic en "Ver Imagen" para abrir en nueva pestaña o "Descargar" para guardar el archivo
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {currentPhotos.map((photo, index) => (
+                    <div key={photo.id || index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center mb-3">
+                        <div className="p-2 bg-purple-100 rounded-lg mr-3">
+                          <FileText className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">
+                            {photo.photoType === 'SLIDE' ? 'Imagen del Negocio' : 
+                             photo.fileType ? `${photo.fileType.toUpperCase()}` : 
+                             `Documento ${index + 1}`}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {photo.fileType || 'Tipo de archivo desconocido'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {photo.url && (
+                        <div className="aspect-video bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                          <img
+                            src={photo.url}
+                            alt={`Documento ${index + 1}`}
+                            className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => window.open(photo.url, '_blank')}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `
+                                  <div class="flex items-center justify-center h-full text-gray-400">
+                                    <div class="text-center">
+                                      <svg class="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                                      </svg>
+                                      <p class="text-xs">Vista previa no disponible</p>
+                                    </div>
+                                  </div>
+                                `;
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => window.open(photo.url, '_blank')}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver Imagen
+                        </button>
+                        <button
+                          onClick={() => descargarImagen(photo.url, `documento_${selectedNegocio.commercialName}_${index + 1}.${photo.fileType || 'jpg'}`)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Descargar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowPhotosModal(false);
+                  setSelectedNegocio(null);
+                  setCurrentPhotos([]);
+                  setPhotosError('');
                 }}
                 className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
               >
