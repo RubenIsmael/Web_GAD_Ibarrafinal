@@ -91,24 +91,7 @@ const validarEstadoNegocio = (estado: string | undefined): 'PENDING' | 'APPROVED
       return 'PENDING';
   }
 };
-// Estados para filtros y búsqueda
-const [searchTerm, setSearchTerm] = useState('');
-const [filterStatus, setFilterStatus] = useState('all');
 
-// Estados para paginación
-const [currentPage, setCurrentPage] = useState(0);
-const [pageSize, setPageSize] = useState(10);
-const [totalPages, setTotalPages] = useState(0);
-const [totalElements, setTotalElements] = useState(0);
-
-// Función wrapper para setCurrentPage que valida valores negativos
-const setCurrentPageSafe = (page: number) => {
-  const validPage = Math.max(0, page);
-  if (page !== validPage) {
-    console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
-  }
-  setCurrentPage(validPage);
-};
 const LocalesComerciales: React.FC = () => {
   // Estados para datos
   const [negocios, setNegocios] = useState<BusinessAPI[]>([]);
@@ -119,11 +102,32 @@ const LocalesComerciales: React.FC = () => {
     aprobados: 0,
     rechazados: 0
   });
+
+// Estados para modal de documentos/fotos
 const [showPhotosModal, setShowPhotosModal] = useState(false);
 const [currentPhotos, setCurrentPhotos] = useState<any[]>([]);
 const [loadingPhotos, setLoadingPhotos] = useState(false);
 const [photosError, setPhotosError] = useState<string>('');
-// Estados para modal de documentos/fotos
+
+  // Estados para filtros y búsqueda
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+
+  // Función wrapper para setCurrentPage que valida valores negativos
+  const setCurrentPageSafe = (page: number) => {
+    const validPage = Math.max(0, page);
+    if (page !== validPage) {
+      console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
+    }
+    setCurrentPage(validPage);
+  };
+ // Función para obtener detalles completos del negocio (incluyendo fotos)
 const obtenerDetallesCompletos = async (businessId: number): Promise<{ photos: any[] }> => {
   try {
     console.log('🔍 Obteniendo detalles completos del negocio:', businessId);
@@ -132,80 +136,84 @@ const obtenerDetallesCompletos = async (businessId: number): Promise<{ photos: a
       throw new Error('Token no válido');
     }
 
-    // ESTRATEGIA 1: Intentar obtener el negocio completo desde el endpoint de administrador
-    try {
-      console.log('🔄 Intentando endpoint de administrador para obtener fotos...');
-      const adminResponse = await apiService.request(`/admin/business/${businessId}`, {
-        method: 'GET'
-      });
-
-if (adminResponse.success && adminResponse.data && (adminResponse.data as any).photos) {
-  console.log('✅ Fotos obtenidas desde endpoint de administrador:', (adminResponse.data as any).photos);
-  return { photos: (adminResponse.data as any).photos };
-}
-} catch (adminError) {
-  console.warn('⚠️ Endpoint de administrador falló:', adminError);
-}
-
-    // ESTRATEGIA 2: Intentar endpoint específico de fotos
-    try {
-      console.log('🔄 Intentando endpoint específico de fotos...');
-      const photosResponse = await apiService.request(`/business/${businessId}/photos`, {
-        method: 'GET'
-      });
-
-      if (photosResponse.success && photosResponse.data) {
-        const photos = Array.isArray(photosResponse.data) ? photosResponse.data : (photosResponse.data as any).photos || [];
-        console.log('✅ Fotos obtenidas desde endpoint específico:', photos);
-        return { photos };
-      }
-    } catch (photosError) {
-      console.warn('⚠️ Endpoint de fotos falló:', photosError);
-    }
-
-    // ESTRATEGIA 3: Buscar en los datos locales y construir desde URLs
-    console.log('🔄 Construyendo fotos desde datos locales...');
+    // Buscar el negocio en la lista actual para obtener URLs
     const negocio = negocios.find(n => n.id === businessId);
     if (!negocio) {
       console.warn('⚠️ Negocio no encontrado en la lista actual');
       return { photos: [] };
     }
 
-    // ESTRATEGIA 4: Fallback usando URLs directas del objeto negocio
-    const photos = [];
-    
-    if (negocio.cedulaFileUrl) {
-      photos.push({
-        id: `cedula_${businessId}`,
-        url: corregirURL(negocio.cedulaFileUrl),
-        fileType: 'cedula',
-        photoType: 'DOCUMENT',
-        publicId: `cedula_${businessId}`
-      });
-    }
-    
-    if (negocio.logoUrl) {
-      photos.push({
-        id: `logo_${businessId}`,
-        url: corregirURL(negocio.logoUrl),
-        fileType: 'logo',
-        photoType: 'LOGO',
-        publicId: `logo_${businessId}`
-      });
-    }
-    
-    if (negocio.signatureUrl) {
-      photos.push({
-        id: `signature_${businessId}`,
-        url: corregirURL(negocio.signatureUrl),
-        fileType: 'signature',
-        photoType: 'SIGNATURE',
-        publicId: `signature_${businessId}`
-      });
-    }
+    // Usar el método del ApiService para obtener documentos desde URLs
+    try {
+      const documents = await apiService.getBusinessDocumentsFromUrls(negocio);
+      const photos = [];
 
-    console.log('📸 Fotos construidas desde URLs directas:', photos.length);
-    return { photos };
+      // Convertir documentos a formato de fotos para compatibilidad
+      if (documents.cedula) {
+        photos.push({
+          id: `cedula_${businessId}`,
+          url: `data:image/jpeg;base64,${documents.cedula}`,
+          photoType: 'DOCUMENT',
+          fileType: 'cedula'
+        });
+      }
+
+      if (documents.logo) {
+        photos.push({
+          id: `logo_${businessId}`,
+          url: `data:image/jpeg;base64,${documents.logo}`,
+          photoType: 'LOGO',
+          fileType: 'logo'
+        });
+      }
+
+      if (documents.signature) {
+        photos.push({
+          id: `signature_${businessId}`,
+          url: `data:image/jpeg;base64,${documents.signature}`,
+          photoType: 'SIGNATURE',
+          fileType: 'signature'
+        });
+      }
+
+      console.log('📸 Documentos convertidos a fotos:', photos.length);
+      return { photos };
+
+    } catch (apiError) {
+      console.warn('⚠️ Error con API, usando URLs directas:', apiError);
+      
+      // Fallback: usar URLs directas desde el negocio
+      const photos = [];
+      
+      if (negocio.cedulaFileUrl) {
+        photos.push({
+          id: `cedula_${businessId}`,
+          url: corregirURL(negocio.cedulaFileUrl),
+          photoType: 'DOCUMENT',
+          fileType: 'cedula'
+        });
+      }
+      
+      if (negocio.logoUrl) {
+        photos.push({
+          id: `logo_${businessId}`,
+          url: corregirURL(negocio.logoUrl),
+          photoType: 'LOGO',
+          fileType: 'logo'
+        });
+      }
+      
+      if (negocio.signatureUrl) {
+        photos.push({
+          id: `signature_${businessId}`,
+          url: corregirURL(negocio.signatureUrl),
+          photoType: 'SIGNATURE',
+          fileType: 'signature'
+        });
+      }
+      
+      return { photos };
+    }
     
   } catch (error) {
     console.error('💥 Error obteniendo detalles completos:', error);
@@ -213,7 +221,6 @@ if (adminResponse.success && adminResponse.data && (adminResponse.data as any).p
   }
 };
 
-    
 // Función para descargar imagen
 const descargarImagen = async (url: string, filename: string) => {
   try {
