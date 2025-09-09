@@ -7,7 +7,8 @@ import {
   Calendar,
   Store,
   LogOut,
-  X
+  X,
+  Trash   
 } from 'lucide-react';
 import '../styles/sidebar.css'
 
@@ -28,12 +29,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems = [
     { id: 'home', label: 'Inicio', icon: Home },
-   // { id: 'requerimientos', label: 'Requerimientos', icon: FileText },
+    // { id: 'requerimientos', label: 'Requerimientos', icon: FileText },
     { id: 'promociones', label: 'Promociones', icon: MessageSquare }, 
     { id: 'comerciantes', label: 'Comerciantes', icon: FolderOpen },
     //{ id: 'ferias', label: 'Ferias', icon: Calendar },
-    { id: 'soporte', label: 'soporte técnico', icon: Calendar },
     { id: 'locales', label: 'Locales Comerciales', icon: Store },
+    { id: 'eliminar', label: 'Aprobar Eliminación De Comerciante', icon: Trash }, 
+    { id: 'soporte', label: 'Soporte Técnico', icon: Calendar },
   ];
 
   const handleSectionChange = (section: string) => {
@@ -88,10 +90,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleSectionChange(item.id)}
-                  className={`sidebar-menu-button ${isActive
+                  className={`sidebar-menu-button ${
+                    isActive
                       ? 'sidebar-menu-button-active'
                       : 'sidebar-menu-button-inactive'
-                    }`}
+                  }`}
                 >
                   <Icon size={20} className="sidebar-menu-icon" />
                   <span className="sidebar-menu-label">{item.label}</span>

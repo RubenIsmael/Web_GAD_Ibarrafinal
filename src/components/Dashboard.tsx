@@ -6,6 +6,7 @@ import Promociones from './Promociones';
 import Proyectos from './Proyectos'; 
 //import Ferias from './Ferias';
 import Soporte from './Soporte';
+import Eliminar from './Eliminar';
 import LocalesComerciales from './LocalesComerciales';
 import '../styles/dashboard.css'
 
@@ -29,6 +30,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         return <Proyectos />; 
         case 'soporte': 
         return <Soporte />; 
+        case 'eliminar': 
+        return <Eliminar />; 
      // case 'ferias':
        // return <Ferias />;
       case 'locales':

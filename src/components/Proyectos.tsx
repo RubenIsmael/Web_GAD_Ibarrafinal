@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Plus, Search, Filter, Calendar, User, TrendingUp, Eye, Edit, Trash2, Check, X, ChevronLeft, ChevronRight, FileText, Download, MessageSquare, Send, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { FolderOpen, Plus, Search, Filter, Calendar, User, TrendingUp, Eye, Edit, Trash2, Check, X, ChevronLeft, ChevronRight, FileText, Download, MessageSquare, Send,ZoomIn, ZoomOut, RotateCw} from 'lucide-react';
 import { ApiService } from './login/ApiService'; 
 import '../styles/proyectos.css';
 
@@ -64,13 +64,54 @@ const validarEstado = (estado: string | undefined): 'pendiente' | 'aprobado' | '
     case 'finished':
     case 'terminado':
       return 'completado';
-    default: {
-      const estadosValidos = ['pendiente', 'aprobado', 'rechazado', 'en-progreso', 'completado'] as const;
-      if ((estadosValidos as readonly string[]).includes(estado)) {
-        return estado as 'pendiente' | 'aprobado' | 'rechazado' | 'en-progreso' | 'completado';
-      }
-      return 'pendiente';
+default: {
+  const estadosValidos = ['pendiente', 'aprobado', 'rechazado', 'en-progreso', 'completado'] as const;
+if ((estadosValidos as readonly string[]).includes(estado)) {
+    return estado as 'pendiente' | 'aprobado' | 'rechazado' | 'en-progreso' | 'completado';
+  }
+  return 'pendiente';
+}}
+};
+
+// *** FUNCIÓN DE DEBUGGING PARA BASE64 - MEJORADA ***
+const debugBase64Data = (data: string, fileName: string): void => {
+  console.log('🔍 DEBUG - Analizando datos base64:', {
+    fileName,
+    dataLength: data ? data.length : 0,
+    hasData: !!data,
+    firstChars: data ? data.substring(0, 50) : 'N/A',
+    lastChars: data ? data.substring(data.length - 50) : 'N/A',
+    hasDataPrefix: data ? data.startsWith('data:') : false,
+    hasNewlines: data ? data.includes('\n') || data.includes('\r') : false,
+    hasSpaces: data ? data.includes(' ') : false,
+    validBase64: data ? /^[A-Za-z0-9+/]*={0,2}$/.test(data.replace(/\s/g, '')) : false,
+    likelyPDF: data ? data.startsWith('JVBERi') || data.startsWith('JVBER') : false,
+    likelyJPEG: data ? data.startsWith('/9j/') : false,
+    likelyPNG: data ? data.startsWith('iVBOR') : false
+  });
+  
+  // Verificar si los datos tienen caracteres problemáticos
+  if (data) {
+    const problemChars = data.match(/[^A-Za-z0-9+/=]/g);
+    if (problemChars) {
+      console.warn('⚠️ Caracteres problemáticos encontrados:', problemChars.slice(0, 10));
     }
+    
+    // Intentar limpiar y validar
+    const cleanData = data.replace(/\s/g, '');
+    console.log('🧹 Datos después de limpiar espacios:', {
+      originalLength: data.length,
+      cleanLength: cleanData.length,
+      removedChars: data.length - cleanData.length
+    });
+    
+    // Verificar padding base64
+    const paddingCount = (cleanData.match(/=/g) || []).length;
+    console.log('📏 Análisis de padding base64:', {
+      paddingCount,
+      isValidPadding: paddingCount <= 2,
+      endsCorrectly: cleanData.endsWith('=') || cleanData.endsWith('==') || /[A-Za-z0-9+/]$/.test(cleanData)
+    });
   }
 };
 
@@ -85,222 +126,368 @@ const Proyectos: React.FC = () => {
     rechazados: 0
   });
   
-  // *** COMPONENTE DOCUMENTVIEWER COMPLETO ***
-  const DocumentViewer = ({ 
-    isOpen, 
-    onClose, 
-    documentData, 
-    documentName, 
-    documentType 
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-    documentData?: string;
-    documentName?: string;
-    documentType?: string;
-  }) => {
-    const [zoom, setZoom] = useState<number>(100);
-    const [rotation, setRotation] = useState<number>(0);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string>('');
-    const [imageLoaded, setImageLoaded] = useState<boolean>(false);
+  // *** COMPONENTE DOCUMENTVIEWER COMPLETO Y CORREGIDO ***
+const DocumentViewer = ({ 
+  isOpen, 
+  onClose, 
+  documentData, 
+  documentName, 
+  documentType 
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  documentData?: string;
+  documentName?: string;
+  documentType?: string;
+}) => {
+  const [zoom, setZoom] = useState<number>(100);
+  const [rotation, setRotation] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
+  const [imageLoaded, setImageLoaded] = useState<boolean>(false);
 
-    // Reset estados cuando se abre/cierra el modal
-    useEffect(() => {
-      if (isOpen) {
-        setZoom(100);
-        setRotation(0);
-        setLoading(true);
-        setError('');
-        setImageLoaded(false);
-        
-        const timer = setTimeout(() => {
-          setLoading(false);
-        }, 500);
-        
-        return () => clearTimeout(timer);
-      }
-    }, [isOpen]);
-
-    if (!isOpen) return null;
-
-    if (!documentData || !documentName) {
-      return (
-        <div className="document-viewer-overlay">
-          <div className="document-viewer-container">
-            <div className="document-viewer-error">
-              <FileText className="document-viewer-error-icon" />
-              <h3>Error al cargar documento</h3>
-              <p>No se pudieron cargar los datos del documento</p>
-              <button onClick={onClose} className="document-viewer-cancel-btn">
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      );
+  // Reset estados cuando se abre/cierra el modal
+  useEffect(() => {
+    if (isOpen) {
+      setZoom(100);
+      setRotation(0);
+      setLoading(true);
+      setError('');
+      setImageLoaded(false);
+      
+      // Simular carga del documento
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
+  }, [isOpen]);
 
-    // Función para detectar tipo de archivo
-    const getFileTypeAndMime = (): { fileType: string; mimeType: string } => {
-      const fileName = documentName.toLowerCase();
-      
-      if (documentData) {
-        if (documentData.startsWith('JVBERi') || documentData.startsWith('JVBER')) {
-          return { fileType: 'pdf', mimeType: 'application/pdf' };
-        }
-        if (documentData.startsWith('/9j/')) {
-          return { fileType: 'image', mimeType: 'image/jpeg' };
-        }
-        if (documentData.startsWith('iVBOR')) {
-          return { fileType: 'image', mimeType: 'image/png' };
-        }
-      }
-      
-      if (fileName.includes('.pdf')) {
-        return { fileType: 'pdf', mimeType: 'application/pdf' };
-      }
-      if (fileName.includes('.jpg') || fileName.includes('.jpeg')) {
-        return { fileType: 'image', mimeType: 'image/jpeg' };
-      }
-      if (fileName.includes('.png')) {
-        return { fileType: 'image', mimeType: 'image/png' };
-      }
-      
-      return { fileType: 'pdf', mimeType: 'application/pdf' };
-    };
-    
-    const { fileType, mimeType } = getFileTypeAndMime();
-    
-    const cleanBase64Data = (data: string): string => {
-      if (!data) return '';
-      let cleanData = data.replace(/^data:[^;]+;base64,/, '');
-      cleanData = cleanData.replace(/\s/g, '');
-      return cleanData;
-    };
+  // Log para debugging
+  useEffect(() => {
+    if (isOpen) {
+      console.log('📖 DocumentViewer - Estado actual:', {
+        isOpen,
+        hasDocumentData: !!documentData,
+        documentName,
+        documentType,
+        dataLength: documentData ? documentData.length : 0,
+        firstChars: documentData ? documentData.substring(0, 20) + '...' : 'N/A'
+      });
+    }
+  }, [isOpen, documentData, documentName, documentType]);
 
-    const cleanedData = cleanBase64Data(documentData);
-    const dataUrl = `data:${mimeType};base64,${cleanedData}`;
+  if (!isOpen) {
+    return null;
+  }
 
-    const handleDownload = (): void => {
-      try {
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = documentName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } catch (err) {
-        alert('Error al descargar el documento');
-      }
-    };
-
-    const handleZoomIn = (): void => setZoom(prev => Math.min(200, prev + 25));
-    const handleZoomOut = (): void => setZoom(prev => Math.max(25, prev - 25));
-    const handleRotate = (): void => setRotation(prev => (prev + 90) % 360);
-
+  if (!documentData || !documentName) {
+    console.error('❌ DocumentViewer - Faltan datos requeridos:', {
+      hasDocumentData: !!documentData,
+      hasDocumentName: !!documentName
+    });
     return (
       <div className="document-viewer-overlay">
         <div className="document-viewer-container">
-          {/* Header */}
-          <div className="document-viewer-header">
-            <div className="document-viewer-title">
-              <FileText className="w-5 h-5 text-blue-600 mr-2" />
-              <h3 title={documentName}>{documentName}</h3>
-            </div>
-            
-            <div className="document-viewer-controls">
-              {fileType === 'image' && !loading && imageLoaded && (
-                <>
-                  <button onClick={handleZoomOut} className="document-viewer-control-btn" disabled={zoom <= 25}>
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <span className="document-viewer-zoom-text">{zoom}%</span>
-                  <button onClick={handleZoomIn} className="document-viewer-control-btn" disabled={zoom >= 200}>
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                  <button onClick={handleRotate} className="document-viewer-control-btn">
-                    <RotateCw className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-              <button onClick={onClose} className="document-viewer-close-btn">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="document-viewer-content">
-            <div className="document-viewer-content-inner">
-              {loading ? (
-                <div className="document-viewer-loading">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-                  <span>Cargando documento...</span>
-                </div>
-              ) : error ? (
-                <div className="document-viewer-error">
-                  <FileText className="document-viewer-error-icon" />
-                  <h3>Error al cargar</h3>
-                  <p>{error}</p>
-                </div>
-              ) : fileType === 'pdf' ? (
-                <iframe
-                  src={dataUrl}
-                  className="document-viewer-iframe"
-                  title={documentName}
-                  onError={() => setError('Error al cargar el archivo PDF')}
-                />
-              ) : (
-                <div className="document-viewer-image-container">
-                  {!imageLoaded && !error && (
-                    <div className="document-viewer-loading">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      <span>Cargando imagen...</span>
-                    </div>
-                  )}
-                  <img
-                    src={dataUrl}
-                    alt={documentName}
-                    className="document-viewer-image"
-                    style={{
-                      transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                      transition: 'transform 0.2s ease',
-                      display: imageLoaded ? 'block' : 'none'
-                    }}
-                    onLoad={() => {
-                      setImageLoaded(true);
-                      setError('');
-                    }}
-                    onError={() => {
-                      setError('Error al cargar la imagen');
-                      setImageLoaded(false);
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="document-viewer-footer">
-            <div className="document-viewer-info">
-              {fileType === 'pdf' ? 'Documento PDF' : 'Imagen'} • {documentName}
-            </div>
-            <div className="document-viewer-actions">
-              <button onClick={handleDownload} className="document-viewer-download-btn" disabled={loading}>
-                <Download className="w-4 h-4 mr-2" />
-                Descargar
-              </button>
-              <button onClick={onClose} className="document-viewer-cancel-btn">
-                Cerrar
-              </button>
-            </div>
+          <div className="document-viewer-error">
+            <FileText className="document-viewer-error-icon" />
+            <h3>Error al cargar documento</h3>
+            <p>No se pudieron cargar los datos del documento</p>
+            <button onClick={onClose} className="document-viewer-cancel-btn">
+              Cerrar
+            </button>
           </div>
         </div>
       </div>
     );
+  }
+
+// Función mejorada para detectar tipo de archivo - CORREGIDA
+const getFileTypeAndMime = (): { fileType: string; mimeType: string } => {
+  const fileName = documentName.toLowerCase();
+  
+  // PRIMERO: Detectar por contenido base64 (más confiable)
+  if (documentData) {
+    // Los PDFs empiezan con JVBERi (base64 de %PDF)
+    if (documentData.startsWith('JVBERi') || documentData.startsWith('JVBER')) {
+      console.log('🔍 Detectado PDF por contenido base64, ignorando extensión .jpg');
+      return { fileType: 'pdf', mimeType: 'application/pdf' };
+    }
+    
+    // JPEGs empiezan con /9j/
+    if (documentData.startsWith('/9j/')) {
+      console.log('🔍 Detectado JPEG por contenido base64');
+      return { fileType: 'image', mimeType: 'image/jpeg' };
+    }
+    
+    // PNGs empiezan con iVBOR
+    if (documentData.startsWith('iVBOR')) {
+      console.log('🔍 Detectado PNG por contenido base64');
+      return { fileType: 'image', mimeType: 'image/png' };
+    }
+    
+    // GIFs empiezan con R0lGOD
+    if (documentData.startsWith('R0lGOD')) {
+      console.log('🔍 Detectado GIF por contenido base64');
+      return { fileType: 'image', mimeType: 'image/gif' };
+    }
+  }
+  
+  // SEGUNDO: Si no se detecta por contenido, usar extensión
+  if (fileName.includes('.pdf')) {
+    return { fileType: 'pdf', mimeType: 'application/pdf' };
+  }
+  
+  if (fileName.includes('.jpg') || fileName.includes('.jpeg')) {
+    return { fileType: 'image', mimeType: 'image/jpeg' };
+  }
+  if (fileName.includes('.png')) {
+    return { fileType: 'image', mimeType: 'image/png' };
+  }
+  if (fileName.includes('.gif')) {
+    return { fileType: 'image', mimeType: 'image/gif' };
+  }
+  if (fileName.includes('.bmp')) {
+    return { fileType: 'image', mimeType: 'image/bmp' };
+  }
+  if (fileName.includes('.webp')) {
+    return { fileType: 'image', mimeType: 'image/webp' };
+  }
+  
+  // TERCERO: Detectar por tipo de documento si está disponible
+  if (documentType === 'identity' || documentType === 'cedula') {
+    // Para cédulas, verificar contenido primero
+    if (documentData && documentData.startsWith('JVBERi')) {
+      return { fileType: 'pdf', mimeType: 'application/pdf' };
+    }
+    return { fileType: 'image', mimeType: 'image/jpeg' };
+  }
+  
+  // Default a PDF si no se puede determinar
+  console.warn('⚠️ No se pudo determinar el tipo de archivo, usando PDF por defecto');
+  return { fileType: 'pdf', mimeType: 'application/pdf' };
+};
+  const { fileType, mimeType } = getFileTypeAndMime();
+  
+  // Limpiar y validar datos base64
+  const cleanBase64Data = (data: string): string => {
+    if (!data) return '';
+    
+    // Remover cualquier prefijo de data URL si existe
+    let cleanData = data.replace(/^data:[^;]+;base64,/, '');
+    
+    // Remover espacios en blanco y saltos de línea
+    cleanData = cleanData.replace(/\s/g, '');
+    
+    // Validar que sea base64 válido
+    try {
+      atob(cleanData);
+      return cleanData;
+    } catch (e) {
+      console.error('❌ Datos base64 inválidos:', e);
+      return data; // Retornar datos originales si falla la validación
+    }
   };
+
+  const cleanedData = cleanBase64Data(documentData);
+  const dataUrl = `data:${mimeType};base64,${cleanedData}`;
+
+  console.log('🔍 Información de archivo procesada:', {
+    fileName: documentName,
+    fileType,
+    mimeType,
+    dataLength: cleanedData.length,
+    dataUrl: dataUrl.substring(0, 100) + '...'
+  });
+
+  const handleDownload = (): void => {
+    try {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = documentName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      console.log('✅ Descarga iniciada:', documentName);
+    } catch (err) {
+      console.error('❌ Error al descargar:', err);
+      alert('Error al descargar el documento');
+    }
+  };
+
+  const handleZoomIn = (): void => {
+    setZoom(prev => Math.min(200, prev + 25));
+  };
+
+  const handleZoomOut = (): void => {
+    setZoom(prev => Math.max(25, prev - 25));
+  };
+
+  const handleRotate = (): void => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  // Manejar carga de imagen
+  const handleImageLoad = (): void => {
+    console.log('✅ Imagen cargada correctamente');
+    setImageLoaded(true);
+    setError('');
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>): void => {
+    console.error('❌ Error al cargar imagen:', e);
+    console.error('❌ URL de la imagen:', dataUrl.substring(0, 100) + '...');
+    setError('Error al cargar la imagen. Verifique el formato del archivo.');
+    setImageLoaded(false);
+  };
+
+  return (
+    <div className="document-viewer-overlay">
+      <div className="document-viewer-container">
+        {/* Header */}
+        <div className="document-viewer-header">
+          <div className="document-viewer-title">
+            <FileText className="w-5 h-5 text-blue-600 mr-2" />
+            <h3 title={documentName}>{documentName}</h3>
+          </div>
+          
+          <div className="document-viewer-controls">
+            {fileType === 'image' && !loading && imageLoaded && (
+              <>
+                <button
+                  onClick={handleZoomOut}
+                  className="document-viewer-control-btn"
+                  title="Reducir zoom"
+                  disabled={zoom <= 25}
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                
+                <span className="document-viewer-zoom-text">
+                  {zoom}%
+                </span>
+                
+                <button
+                  onClick={handleZoomIn}
+                  className="document-viewer-control-btn"
+                  title="Aumentar zoom"
+                  disabled={zoom >= 200}
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                
+                <button
+                  onClick={handleRotate}
+                  className="document-viewer-control-btn"
+                  title="Rotar imagen"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
+              </>
+            )}
+            
+            <button
+              onClick={onClose}
+              className="document-viewer-close-btn"
+              title="Cerrar visor"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="document-viewer-content">
+          <div className="document-viewer-content-inner">
+            {loading ? (
+              <div className="document-viewer-loading">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span>Cargando documento...</span>
+              </div>
+            ) : error ? (
+              <div className="document-viewer-error">
+                <FileText className="document-viewer-error-icon" />
+                <h3>Error al cargar</h3>
+                <p>{error}</p>
+                <div className="mt-4 text-sm">
+                  <p>Información de debug:</p>
+                  <p>Tipo: {fileType}</p>
+                  <p>MIME: {mimeType}</p>
+                  <p>Datos: {cleanedData.length} caracteres</p>
+                </div>
+              </div>
+            ) : fileType === 'pdf' ? (
+              <iframe
+                src={dataUrl}
+                className="document-viewer-iframe"
+                title={documentName}
+                onLoad={() => console.log('✅ PDF cargado correctamente')}
+                onError={() => {
+                  console.error('❌ Error al cargar PDF');
+                  setError('Error al cargar el archivo PDF');
+                }}
+              />
+            ) : (
+              <div className="document-viewer-image-container">
+                {/* Mostrar indicador de carga para imágenes */}
+                {!imageLoaded && !error && (
+                  <div className="document-viewer-loading">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                    <span>Cargando imagen...</span>
+                  </div>
+                )}
+                
+                <img
+                  src={dataUrl}
+                  alt={documentName}
+                  className="document-viewer-image"
+                  style={{
+                    transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                    transition: 'transform 0.2s ease',
+                    display: imageLoaded ? 'block' : 'none'
+                  }}
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="document-viewer-footer">
+          <div className="document-viewer-info">
+            {fileType === 'pdf' ? 'Documento PDF' : 'Imagen'} • {documentName}
+            {fileType === 'image' && (
+              <span className="ml-2 text-xs">
+                ({mimeType})
+              </span>
+            )}
+          </div>
+          
+          <div className="document-viewer-actions">
+            <button
+              onClick={handleDownload}
+              className="document-viewer-download-btn"
+              disabled={loading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Descargar
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="document-viewer-cancel-btn"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   // Estados para filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -336,36 +523,45 @@ const Proyectos: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   
-  // Estados para documentos y observaciones
+  // *** ESTADOS PARA DOCUMENTOS Y OBSERVACIONES ***
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
-  const [currentViewDocument, setCurrentViewDocument] = useState<any>(null);
+const [currentViewDocument, setCurrentViewDocument] = useState<any>(null);
   const [observationText, setObservationText] = useState('');
   const [currentDocuments, setCurrentDocuments] = useState<DocumentoProyecto>({});
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [documentError, setDocumentError] = useState<string>('');
 
-  // Función unificada para verificar token
+// Función unificada para verificar token
   const verificarToken = (): boolean => {
+    console.log('🔍 Verificando estado de autenticación...');
+    
     const token = apiService.getCurrentToken();
     const isAuth = apiService.isAuthenticated();
     
+    console.log('🔑 Token actual:', token ? `${token.substring(0, 50)}...` : 'NO HAY TOKEN');
+    console.log('✅ ¿Está autenticado?:', isAuth);
+    
     if (!isAuth || !token) {
+      console.error('❌ No hay token de autenticación válido');
       setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
       return false;
     }
     
+    // Verificar si el token está expirado
     if (apiService.isTokenExpired()) {
+      console.warn('⚠️ Token expirado');
       setError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
       apiService.clearToken();
       return false;
     }
     
+    console.log('✅ Token válido y no expirado');
     return true;
   };
 
-  // Función para cargar documentos
+  // *** FUNCIÓN PARA CARGAR DOCUMENTOS ***
   const cargarDocumentos = async (userId: string) => {
     try {
       if (!verificarToken()) return;
@@ -373,6 +569,9 @@ const Proyectos: React.FC = () => {
       setLoadingDocuments(true);
       setDocumentError('');
       
+      console.log('📄 Cargando documentos para usuario:', userId);
+      
+      // Cargar los tres documentos en paralelo
       const [certificateResponse, identityResponse, signedResponse] = await Promise.allSettled([
         apiService.getUserCertificate(userId),
         apiService.getUserIdentityDocument(userId), 
@@ -380,48 +579,63 @@ const Proyectos: React.FC = () => {
       ]);
       
       const documents: DocumentoProyecto = {};
+
       
+      // Procesar certificado
       if (certificateResponse.status === 'fulfilled' && certificateResponse.value.success) {
         documents.certificate = certificateResponse.value.data;
+        console.log('✅ Certificado cargado');
+      } else {
+        console.warn('⚠️ Error cargando certificado:', certificateResponse);
       }
       
+      // Procesar documento de identidad
       if (identityResponse.status === 'fulfilled' && identityResponse.value.success) {
         documents.identityDocument = identityResponse.value.data;
+        console.log('✅ Documento de identidad cargado');
+      } else {
+        console.warn('⚠️ Error cargando documento de identidad:', identityResponse);
       }
       
+      // Procesar documento firmado
       if (signedResponse.status === 'fulfilled' && signedResponse.value.success) {
         documents.signedDocument = signedResponse.value.data;
+        console.log('✅ Documento firmado cargado');
+      } else {
+        console.warn('⚠️ Error cargando documento firmado:', signedResponse);
       }
       
       setCurrentDocuments(documents);
       
+      // Verificar si al menos un documento se cargó
       const hasDocuments = Object.values(documents).some(doc => doc);
       if (!hasDocuments) {
         setDocumentError('No se pudieron cargar los documentos. Verifique que el usuario tenga documentos subidos.');
       }
       
     } catch (err) {
+      console.error('💥 Error cargando documentos:', err);
       setDocumentError('Error de conexión al cargar los documentos.');
     } finally {
       setLoadingDocuments(false);
     }
   };
 
-  // Función para abrir ventana de documentos
+  // *** FUNCIÓN PARA ABRIR VENTANA DE DOCUMENTOS ***
   const abrirDocumentos = async (proyecto: ProyectoAPI) => {
     setSelectedProyecto(proyecto);
     setShowDocumentsModal(true);
     await cargarDocumentos(proyecto.id);
   };
 
-  // Función para manejar rechazo con observación
+  // *** FUNCIÓN PARA MANEJAR RECHAZO CON OBSERVACIÓN ***
   const iniciarRechazo = (proyecto: ProyectoAPI) => {
     setSelectedProyecto(proyecto);
     setObservationText('');
     setShowObservationModal(true);
   };
 
-  // Función para enviar rechazo con observación
+  // *** FUNCIÓN PARA ENVIAR RECHAZO CON OBSERVACIÓN - ACTUALIZADA ***
   const enviarRechazo = async () => {
     if (!selectedProyecto) return;
     
@@ -439,39 +653,63 @@ const Proyectos: React.FC = () => {
       if (!verificarToken()) return;
       
       setLoading(true);
+      console.log('❌ Rechazando usuario con observación:', {
+        userId: selectedProyecto.id,
+        observacion: observationText.trim().substring(0, 100) + '...'
+      });
+      
+      // Usar el nuevo método rechazarUsuario que consume el endpoint correcto
       const response = await apiService.rechazarUsuario(selectedProyecto.id, observationText.trim());
+      console.log('📡 Respuesta de rechazo:', response);
       
       if (response.success) {
+        console.log('✅ Usuario rechazado exitosamente');
+        
+        // Cerrar modal de observación
         setShowObservationModal(false);
         setObservationText('');
         setSelectedProyecto(null);
+        
+        // Cerrar modal de documentos si está abierto
         setShowDocumentsModal(false);
         setCurrentDocuments({});
         setDocumentError('');
         
+        // Recargar proyectos para reflejar el cambio de estado
         await loadProyectos();
         setTimeout(() => filtrarProyectos(), 100);
-        loadDashboardStats();
         
+        // Mostrar mensaje de éxito más específico
         alert(`Usuario rechazado exitosamente. ${response.message || 'Se ha enviado la notificación con la observación.'}`);
+        
       } else {
+        console.error('❌ Error al rechazar usuario:', response.error);
+        
         if (response.status === 401) {
           setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
           apiService.clearToken();
+        } else if (response.status === 400) {
+          alert('Error: El usuario ya está habilitado y no puede ser rechazado.');
+        } else if (response.status === 403) {
+          alert('No tiene permisos para rechazar usuarios.');
+        } else if (response.status === 404) {
+          alert('Usuario no encontrado.');
         } else {
           alert(response.error || 'Error al rechazar usuario');
         }
       }
     } catch (err) {
+      console.error('💥 Error de conexión al rechazar usuario:', err);
       alert('Error de conexión al rechazar usuario. Verifique su conexión a internet.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para descargar documento
+  // *** FUNCIÓN PARA DESCARGAR DOCUMENTO ***
   const descargarDocumento = (documentData: string, filename: string) => {
     try {
+      // Crear un enlace temporal para descargar
       const link = document.createElement('a');
       link.href = `data:application/octet-stream;base64,${documentData}`;
       link.download = filename;
@@ -479,53 +717,187 @@ const Proyectos: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     } catch (err) {
+      console.error('Error descargando documento:', err);
       alert('Error al descargar el documento');
     }
   };
 
-  // Función para abrir documento en visor
-  const openDocumentViewer = (documentData: any, name: any, type: any) => {
-    if (!documentData) {
-      alert('Error: No hay datos del documento disponibles');
-      return;
+// Función para abrir documento en visor - CORREGIDA
+// Función para abrir documento en visor - CORREGIDA PARA MOSTRAR INLINE
+const openDocumentViewer = (documentData: any, name: any, type: any) => {
+  console.log('🔍 Abriendo visor de documentos inline');
+  
+  if (!documentData) {
+    console.error('❌ No hay datos del documento para mostrar');
+    alert('Error: No hay datos del documento disponibles');
+    return;
+  }
+  
+  // En lugar de abrir modal separado, mostrar contenido inline
+  // Detectar tipo de archivo
+  const getFileTypeAndMime = (): { fileType: string; mimeType: string } => {
+    const fileName = name.toLowerCase();
+    
+    if (documentData) {
+      if (documentData.startsWith('JVBERi') || documentData.startsWith('JVBER')) {
+        return { fileType: 'pdf', mimeType: 'application/pdf' };
+      }
+      if (documentData.startsWith('/9j/')) {
+        return { fileType: 'image', mimeType: 'image/jpeg' };
+      }
+      if (documentData.startsWith('iVBOR')) {
+        return { fileType: 'image', mimeType: 'image/png' };
+      }
     }
     
-    if (!name) {
-      name = `documento_${type || 'desconocido'}.pdf`;
+    if (fileName.includes('.pdf')) {
+      return { fileType: 'pdf', mimeType: 'application/pdf' };
+    }
+    if (fileName.includes('.jpg') || fileName.includes('.jpeg')) {
+      return { fileType: 'image', mimeType: 'image/jpeg' };
+    }
+    if (fileName.includes('.png')) {
+      return { fileType: 'image', mimeType: 'image/png' };
     }
     
-    try {
-      const documentToView = {
-        data: documentData,
-        name: name,
-        type: type || 'pdf'
-      };
-      
-      setCurrentViewDocument(documentToView);
-      setShowDocumentViewer(true);
-      
-    } catch (error) {
-      alert('Error al abrir el visor de documentos');
-    }
+    return { fileType: 'pdf', mimeType: 'application/pdf' };
   };
+  
+  const { fileType, mimeType } = getFileTypeAndMime();
+  
+  // Limpiar datos base64
+  const cleanData = documentData.replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
+  const dataUrl = `data:${mimeType};base64,${cleanData}`;
+  
+  // Abrir en nueva ventana/pestaña
+  const newWindow = window.open('', '_blank');
+  if (newWindow) {
+    if (fileType === 'pdf') {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>${name}</title>
+            <style>
+              body { margin: 0; padding: 0; }
+              iframe { width: 100vw; height: 100vh; border: none; }
+            </style>
+          </head>
+          <body>
+            <iframe src="${dataUrl}" title="${name}"></iframe>
+          </body>
+        </html>
+      `);
+    } else {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>${name}</title>
+            <style>
+              body { 
+                margin: 0; 
+                padding: 20px; 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                min-height: 100vh; 
+                background: #f5f5f5; 
+              }
+              img { 
+                max-width: 100%; 
+                max-height: 100vh; 
+                object-fit: contain; 
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${dataUrl}" alt="${name}" />
+          </body>
+        </html>
+      `);
+    }
+    newWindow.document.close();
+  } else {
+    alert('No se pudo abrir el documento. Verifique que las ventanas emergentes estén habilitadas.');
+  }
+};
 
-  // Cargar proyectos
+  // Cargar proyectos con verificación de token mejorada
   const loadProyectos = async (page: number = currentPage, size: number = pageSize) => {
     try {
       setLoading(true);
       setError('');
       
+      console.log('🚀 Iniciando carga de proyectos...');
+      
+      // Verificar token antes de hacer la petición
       if (!verificarToken()) {
         setLoading(false);
         return;
       }
       
+      console.log('📊 Parámetros de consulta:', { page, size, searchTerm });
+      
+      // Usar endpoints corregidos basados en swagger
+      // Siempre usar el endpoint de proyectos pendientes para obtener datos reales
+      console.log('🔍 Usando endpoint de proyectos pendientes...');
       const response = await apiService.getProyectosPendientes(page, size);
       
+      console.log('📡 Respuesta de la API:', response);
+      
       if (response.success && response.data) {
-        const proyectosLimpios = response.data.content.filter(proyecto => proyecto && proyecto.id);
+        console.log('✅ Proyectos cargados exitosamente');
+        console.log('📋 Cantidad de proyectos:', response.data.content.length);
+        console.log('🔍 Datos de proyectos recibidos:', response.data.content);
         
+        // Validar y limpiar datos antes de setear
+        const proyectosLimpios = response.data.content.filter(proyecto => {
+          if (!proyecto || !proyecto.id) {
+            console.warn('⚠️ Proyecto filtrado por datos incompletos:', proyecto);
+            return false;
+          }
+          
+          // Debug: Verificar estructura de datos
+          console.log('🔍 Estructura del proyecto recibido:', {
+            hasId: !!proyecto.id,
+            hasNombre: !!proyecto.nombre,
+            hasDescripcion: !!proyecto.descripcion,
+            hasEstado: !!proyecto.estado,
+            hasResponsable: !!proyecto.responsable,
+            hasCategoria: !!proyecto.categoria,
+            hasEmail: !!proyecto.email,
+            hasCedula: !!proyecto.cedula,
+            hasTelefono: !!proyecto.telefono,
+            hasAddress: !!proyecto.address,
+            nombreValue: proyecto.nombre,
+            categoriaValue: proyecto.categoria,
+            responsableValue: proyecto.responsable,
+            emailValue: proyecto.email,
+            cedulaValue: proyecto.cedula,
+            telefonoValue: proyecto.telefono,
+            addressValue: proyecto.address,
+            phoneValue: proyecto.phone,
+            direccionValue: proyecto.direccion
+          });
+          
+          return true;
+        });
+        
+        console.log('📋 Proyectos después del filtrado:', proyectosLimpios.length);
+        
+        // Normalizar datos de proyectos para asegurar compatibilidad
         const proyectosNormalizados = proyectosLimpios.map(proyecto => {
+          console.log('🔍 Datos originales del proyecto:', proyecto);
+          console.log('🔍 Campos específicos del proyecto:', {
+            phone: proyecto.phone,
+            telefono: proyecto.telefono,
+            address: proyecto.address,
+            direccion: proyecto.direccion,
+            email: proyecto.email,
+            cedula: proyecto.cedula
+          });
+          
+          // Datos de prueba si no hay datos reales
           const datosPrueba = {
             phone: '0987654321',
             address: 'Av. Amazonas y Naciones Unidas, Quito',
@@ -533,7 +905,7 @@ const Proyectos: React.FC = () => {
             cedula: '1234567890'
           };
           
-          return {
+          const proyectoNormalizado: ProyectoAPI = {
             id: proyecto.id,
             nombre: proyecto.nombre || proyecto.name || proyecto.title || '',
             descripcion: proyecto.descripcion || proyecto.description || proyecto.desc || '',
@@ -548,100 +920,118 @@ const Proyectos: React.FC = () => {
             cedula: proyecto.cedula || proyecto.identification || proyecto.identificacion || datosPrueba.cedula,
             telefono: proyecto.phone || proyecto.telefono || proyecto.tel || proyecto.celular || datosPrueba.phone,
             address: proyecto.address || proyecto.direccion || proyecto.location || datosPrueba.address
-          } as ProyectoAPI;
+          };
+          
+          console.log('🔍 Proyecto normalizado:', proyectoNormalizado);
+          return proyectoNormalizado;
         });
+        
+        console.log('📋 Proyectos normalizados:', proyectosNormalizados);
         
         setProyectos(proyectosNormalizados);
         setTotalPages(response.data.totalPages);
         setTotalElements(response.data.totalElements);
         setCurrentPage(response.data.pageable.pageNumber);
         
+        // Aplicar filtros después de cargar los proyectos
         setTimeout(() => filtrarProyectos(), 0);
+        
+        // Limpiar error de renderizado cuando carga exitosa
         setRenderError('');
         
+        // Calcular estadísticas
+        calculateStats(proyectosLimpios, response.data.totalElements);
+        
       } else {
+        console.error('❌ Error en respuesta:', response.error || response.message);
+        
+        // Manejar errores de autenticación específicamente
         if (response.status === 401) {
           setError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
           apiService.clearToken();
           window.location.reload();
+        } else if (response.status === 403) {
+          setError('No tiene permisos para ver los proyectos. Contacte al administrador.');
+        } else if (response.status === 404) {
+          setError('Endpoint no encontrado. Verifique la configuración del servidor.');
         } else {
           setError(response.error || response.message || 'Error al cargar proyectos');
         }
         setProyectos([]);
       }
     } catch (err) {
-      setError('Error de conexión al cargar proyectos. Verifique su conexión a internet.');
+      console.error('💥 Error de conexión al cargar proyectos:', err);
+      
+      // Manejo mejorado de errores de red
+      if (err instanceof Error) {
+        if (err.message.includes('fetch') || err.message.includes('Failed to fetch')) {
+          setError('Error de conexión. Verifique que el servidor esté disponible.');
+        } else if (err.message.includes('timeout') || err.message.includes('AbortError')) {
+          setError('La conexión tardó demasiado tiempo. Intente nuevamente.');
+        } else {
+          setError(`Error de conexión: ${err.message}`);
+        }
+      } else {
+        setError('Error de conexión al cargar proyectos. Verifique su conexión a internet.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Cargar estadísticas desde el backend
-  const loadDashboardStats = async () => {
-    try {
-      if (!verificarToken()) return;
-
-      const [bizStatsRes, adminStatsRes] = await Promise.allSettled([
-        apiService.getBusinessStats(),
-        apiService.getAdminDashboardStats()
-      ]);
-
-      let total = 0, pending = 0, approved = 0, rejected = 0;
-
-      if (bizStatsRes.status === 'fulfilled' && bizStatsRes.value.success && bizStatsRes.value.data) {
-        const d: any = bizStatsRes.value.data;
-        total = Number(d.total ?? d.totalUsers ?? 0);
-        pending = Number(d.pending ?? d.pendingUsers ?? 0);
-        approved = Number(d.approved ?? d.approvedUsers ?? 0);
-        rejected = Number(d.rejected ?? d.rejectedUsers ?? 0);
-      } else if (adminStatsRes.status === 'fulfilled' && adminStatsRes.value.success && adminStatsRes.value.data) {
-        const d: any = adminStatsRes.value.data;
-        total = Number(d.totalUsers ?? d.total ?? 0);
-        pending = Number(d.pendingUsers ?? d.pending ?? 0);
-        approved = Number(d.approvedUsers ?? d.approved ?? 0);
-        rejected = Number(d.rejectedUsers ?? d.rejected ?? 0);
-      }
-
-      setStats({
-        totalProyectos: total,
-        pendientes: pending,
-        aprobados: approved,
-        rechazados: rejected
-      });
-    } catch (e) {
-      console.warn('No se pudieron cargar estadísticas del backend');
-    }
+  // Calcular estadísticas
+  const calculateStats = (proyectosList: ProyectoAPI[], total: number) => {
+    const pendientes = proyectosList.filter(p => p.estado === 'pendiente').length;
+    const aprobados = proyectosList.filter(p => p.estado === 'aprobado').length;
+    const rechazados = proyectosList.filter(p => p.estado === 'rechazado').length;
+    
+    setStats({
+      totalProyectos: total,
+      pendientes,
+      aprobados,
+      rechazados
+    });
   };
 
-  // Aprobar proyecto
+  // Aprobar proyecto con verificación mejorada
   const aprobarProyecto = async (userId: string) => {
     try {
       if (!verificarToken()) return;
       
       setLoading(true);
+      console.log('✅ Aprobando proyecto:', userId);
+      
       const response = await apiService.aprobarProyecto(userId);
+      console.log('📡 Respuesta de aprobación:', response);
       
       if (response.success) {
+        console.log('🎉 Proyecto aprobado exitosamente');
         await loadProyectos();
+        // Actualizar estadísticas inmediatamente
         setTimeout(() => filtrarProyectos(), 100);
-        loadDashboardStats();
         alert('Proyecto aprobado exitosamente');
       } else {
+        console.error('❌ Error al aprobar:', response.error);
         if (response.status === 401) {
           setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
           apiService.clearToken();
+        } else if (response.status === 403) {
+          alert('No tiene permisos para aprobar proyectos');
+        } else if (response.status === 404) {
+          alert('Proyecto no encontrado o endpoint no disponible');
         } else {
           alert(response.error || 'Error al aprobar proyecto');
         }
       }
     } catch (err) {
+      console.error('💥 Error de conexión al aprobar proyecto:', err);
       alert('Error de conexión al aprobar proyecto');
     } finally {
       setLoading(false);
     }
   };
 
-  // Crear proyecto
+  // Crear proyecto con verificación mejorada
   const crearProyecto = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -666,9 +1056,13 @@ const Proyectos: React.FC = () => {
         address: newProyecto.address.trim() || undefined
       };
       
+      console.log('➕ Creando proyecto:', proyectoData);
+      
       const response = await apiService.createProyecto(proyectoData);
+      console.log('📡 Respuesta de creación:', response);
       
       if (response.success) {
+        console.log('🎉 Proyecto creado exitosamente');
         setShowModal(false);
         setNewProyecto({
           nombre: '',
@@ -684,6 +1078,7 @@ const Proyectos: React.FC = () => {
         await loadProyectos();
         alert('Proyecto creado exitosamente');
       } else {
+        console.error('❌ Error al crear:', response.error);
         if (response.status === 401) {
           setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
           apiService.clearToken();
@@ -692,6 +1087,7 @@ const Proyectos: React.FC = () => {
         }
       }
     } catch (err) {
+      console.error('💥 Error de conexión al crear proyecto:', err);
       alert('Error de conexión al crear proyecto');
     } finally {
       setLoading(false);
@@ -715,14 +1111,22 @@ const Proyectos: React.FC = () => {
 
   // Función para filtrar proyectos
   const filtrarProyectos = useCallback(() => {
+    console.log(`🔍 Iniciando filtrado - Total proyectos: ${proyectos.length}, Filtro actual: "${filterStatus}", Búsqueda: "${searchTerm}"`);
     let proyectosFiltrados = proyectos;
 
+    // Filtrar por estado
     if (filterStatus !== 'all') {
-      proyectosFiltrados = proyectosFiltrados.filter(proyecto => 
-        proyecto.estado === filterStatus
-      );
+      console.log(`🎯 Aplicando filtro de estado: "${filterStatus}"`);
+      proyectosFiltrados = proyectosFiltrados.filter(proyecto => {
+        const estadoNormalizado = validarEstado(proyecto.estado);
+        const coincide = estadoNormalizado === filterStatus;
+        console.log(`🔍 Proyecto: "${proyecto.nombre}" - Estado: "${proyecto.estado}" -> Normalizado: "${estadoNormalizado}" - Filtro: "${filterStatus}" - Coincide: ${coincide}`);
+        return coincide;
+      });
+      console.log(`✅ Después del filtro de estado: ${proyectosFiltrados.length} proyectos`);
     }
-
+   
+    // Filtrar por búsqueda
     if (searchTerm.trim() !== '') {
       const terminoBusqueda = searchTerm.toLowerCase();
       proyectosFiltrados = proyectosFiltrados.filter(proyecto => 
@@ -735,6 +1139,7 @@ const Proyectos: React.FC = () => {
       );
     }
 
+    // Filtrar proyectos no registrados (sin nombre válido)
     proyectosFiltrados = proyectosFiltrados.filter(proyecto => 
       proyecto.nombre && proyecto.nombre.trim() !== ''
     );
@@ -745,26 +1150,39 @@ const Proyectos: React.FC = () => {
   const handleFilterChange = (newFilter: string) => {
     setFilterStatus(newFilter);
     setCurrentPage(0);
+    // No recargar desde la API, solo filtrar localmente
     setTimeout(() => filtrarProyectos(), 0);
   };
 
-  // Efectos
+  // Efecto inicial con debugging mejorado
   useEffect(() => {
+    console.log('🚀 Iniciando componente Proyectos...');
+    console.log('🔍 Estado inicial del token:', {
+      isAuthenticated: apiService.isAuthenticated(),
+      currentToken: apiService.getCurrentToken()?.substring(0, 50) + '...',
+      isExpired: apiService.isTokenExpired()
+    });
+    
+    // Verificar token de manera más robusta
     const inicializar = async () => {
+      // Dar tiempo para que se inicialice el token si viene de login
       await new Promise(resolve => setTimeout(resolve, 100));
       
       if (!verificarToken()) {
+        console.error('❌ No hay token válido, no se cargarán los proyectos');
         setError('No hay sesión válida. Por favor, inicie sesión.');
         return;
       }
       
+      // Si hay token, cargar proyectos
+      console.log('✅ Token válido encontrado, cargando proyectos...');
       loadProyectos();
-      loadDashboardStats();
     };
     
     inicializar();
   }, []);
 
+  // Efecto para búsqueda con debounce
   useEffect(() => {
     if (!apiService.isAuthenticated()) return;
     
@@ -775,6 +1193,7 @@ const Proyectos: React.FC = () => {
     return () => clearTimeout(delayedSearch);
   }, [searchTerm, filtrarProyectos]);
 
+  // Efecto para aplicar filtros cuando cambien los proyectos
   useEffect(() => {
     if (proyectos.length > 0) {
       filtrarProyectos();
@@ -803,17 +1222,36 @@ const Proyectos: React.FC = () => {
   const renderProyectos = () => {
     try {
       return proyectosFiltrados.map((proyecto) => {
+        // Validación de datos del proyecto
         if (!proyecto || !proyecto.id) {
+          console.warn('⚠️ Proyecto con datos incompletos:', proyecto);
           return null;
         }
 
+        // Debug: Mostrar datos del proyecto
+        console.log('🔍 Datos del proyecto para renderizar:', {
+          id: proyecto.id,
+          nombre: proyecto.nombre,
+          descripcion: proyecto.descripcion,
+          estado: proyecto.estado,
+          responsable: proyecto.responsable,
+          categoria: proyecto.categoria,
+          email: proyecto.email,
+          cedula: proyecto.cedula,
+          telefono: proyecto.telefono,
+          address: proyecto.address
+        });
+
+        // Determinar el estado real del proyecto
         const estadoProyecto = proyecto.estado || 'pendiente';
         
+        // Función para generar un nombre descriptivo cuando no hay nombre
         const generarNombreDescriptivo = (proyecto: ProyectoAPI): string => {
           if (proyecto.nombre && proyecto.nombre.trim() !== '') {
             return proyecto.nombre;
           }
           
+          // Intentar generar un nombre basado en otros campos
           if (proyecto.categoria && proyecto.categoria.trim() !== '') {
             return `${proyecto.categoria} #${proyecto.id}`;
           }
@@ -822,6 +1260,7 @@ const Proyectos: React.FC = () => {
             return `Proyecto de ${proyecto.responsable} #${proyecto.id}`;
           }
           
+          // Fallback al ID con indicación de que falta nombre
           return `Proyecto #${proyecto.id} (Sin nombre)`;
         };
         
@@ -881,6 +1320,7 @@ const Proyectos: React.FC = () => {
             <div className="proyectos-card-footer">
               {estadoProyecto === 'pendiente' ? (
                 <>
+                  {/* *** BOTÓN ABRIR REEMPLAZA APROBAR/RECHAZAR *** */}
                   <button 
                     onClick={() => abrirDocumentos(proyecto)}
                     className="proyectos-action-button bg-blue-600 hover:bg-blue-700 text-white"
@@ -936,20 +1376,30 @@ const Proyectos: React.FC = () => {
                         if (!verificarToken()) return;
                         
                         setLoading(true);
+                        console.log('🗑️ Eliminando proyecto:', proyecto.id);
+                        
                         const response = await apiService.deleteProyecto(proyecto.id);
+                        console.log('📡 Respuesta de eliminación:', response);
                         
                         if (response.success) {
+                          console.log('🎉 Proyecto eliminado exitosamente');
                           await loadProyectos();
                           alert('Proyecto eliminado exitosamente');
                         } else {
+                          console.error('❌ Error al eliminar:', response.error);
                           if (response.status === 401) {
                             setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
                             apiService.clearToken();
+                          } else if (response.status === 403) {
+                            alert('No tiene permisos para eliminar proyectos');
+                          } else if (response.status === 404) {
+                            alert('Proyecto no encontrado');
                           } else {
                             alert(response.error || 'Error al eliminar proyecto');
                           }
                         }
                       } catch (err) {
+                        console.error('💥 Error de conexión al eliminar proyecto:', err);
                         alert('Error de conexión al eliminar proyecto');
                       } finally {
                         setLoading(false);
@@ -968,8 +1418,12 @@ const Proyectos: React.FC = () => {
         );
       }).filter(Boolean);
     } catch (renderErr) {
+      console.error('💥 Error al renderizar proyectos:', renderErr);
+      
+      // Solo actualizar el estado si realmente ha cambiado para evitar loops
       const errorMessage = renderErr instanceof Error ? renderErr.message : 'Error desconocido';
       if (renderError !== errorMessage) {
+        // Usar setTimeout para evitar actualizar estado durante render
         setTimeout(() => {
           setRenderError(errorMessage);
         }, 0);
@@ -988,13 +1442,11 @@ const Proyectos: React.FC = () => {
       <div className="proyectos-header">
         <h1 className="proyectos-title">
           <FolderOpen className="w-8 h-8 text-red-600 mr-3" />
-          Gestión de Comerciantes
+          Gestión de Proyectos
         </h1>
-        <p className="proyectos-subtitle">
-          Administración y aprobación de proyectos municipales
-        </p>
-      </div>
-
+        <p className="proyectos-subtitle"></p>
+        </div>
+         
       {/* Mensaje de error mejorado con más contexto */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -1006,7 +1458,10 @@ const Proyectos: React.FC = () => {
             <div className="flex gap-2">
               {error.includes('sesión') && (
                 <button 
-                  onClick={() => window.location.reload()} 
+                  onClick={() => {
+                    console.log('🔄 Recargando página...');
+                    window.location.reload();
+                  }} 
                   className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
                 >
                   Recargar página
@@ -1025,6 +1480,14 @@ const Proyectos: React.FC = () => {
               </button>
             </div>
           </div>
+          {/* Debug info solo en desarrollo */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-2 text-xs text-red-600">
+              <p>Debug: Token presente: {apiService.isAuthenticated() ? 'SÍ' : 'NO'}</p>
+              <p>Debug: Token expirado: {apiService.isTokenExpired() ? 'SÍ' : 'NO'}</p>
+              <p>Debug: Token preview: {apiService.getCurrentToken()?.substring(0, 30) + '...' || 'N/A'}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -1063,17 +1526,6 @@ const Proyectos: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="proyectos-stat-card">
-          <div className="proyectos-stat-content">
-            <div>
-              <p className="proyectos-stat-text-sm">Rechazados</p>
-              <p className="proyectos-stat-text-lg">{stats.rechazados}</p>
-            </div>
-            <div className="proyectos-stat-icon-container bg-red-100">
-              <X className="proyectos-stat-icon text-red-600" />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Filtros y búsqueda */}
@@ -1098,22 +1550,6 @@ const Proyectos: React.FC = () => {
           </div>
 
           <div className="proyectos-filters-actions">
-            <div className="proyectos-filter-group">
-              <Filter className="proyectos-filter-icon" />
-              <select
-                value={filterStatus}
-                onChange={(e) => handleFilterChange(e.target.value)}
-                className="proyectos-filter-select"
-                disabled={!apiService.isAuthenticated() || loading}
-              >
-                <option value="all">Todos los estados</option>
-                <option value="pendiente">Pendiente</option>
-                <option value="aprobado">Aprobado</option>
-                <option value="rechazado">Rechazado</option>
-                <option value="en-progreso">En Progreso</option>
-                <option value="completado">Completado</option>
-              </select>
-            </div>
 
             <div className="proyectos-filter-group">
               <span className="text-sm text-gray-600">Mostrar:</span>
@@ -1130,14 +1566,6 @@ const Proyectos: React.FC = () => {
               </select>
             </div>
 
-            <button
-              onClick={() => setShowModal(true)}
-              className="proyectos-add-button"
-              disabled={loading || !apiService.isAuthenticated()}
-            >
-              <Plus className="w-5 h-5" />
-              <span>Nuevo Proyecto</span>
-            </button>
           </div>
         </div>
       </div>
@@ -1202,7 +1630,7 @@ const Proyectos: React.FC = () => {
         {!loading && renderProyectos()}
       </div>
 
-      {/* Mensaje cuando no hay proyectos */}
+      {/* Mensaje cuando no hay proyectos - mejorado */}
       {!loading && !renderError && proyectos.length === 0 && (
         <div className="text-center py-12">
           <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -1226,7 +1654,7 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Paginación */}
+      {/* Paginación mejorada */}
       {!loading && !renderError && totalPages > 1 && (
         <div className="flex flex-col sm:flex-row justify-between items-center bg-white px-6 py-3 border-t border-gray-200 rounded-lg shadow-sm mt-6">
           <div className="flex-1 flex justify-between sm:hidden">
@@ -1262,13 +1690,14 @@ const Proyectos: React.FC = () => {
             </div>
             
             <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                 <button
                   onClick={() => changePage(currentPage - 1)}
                   disabled={currentPage === 0 || !apiService.isAuthenticated() || loading}
                   className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <span className="sr-only">Anterior</span>
+                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
                 </button>
                 
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -1304,13 +1733,15 @@ const Proyectos: React.FC = () => {
                   disabled={currentPage >= totalPages - 1 || !apiService.isAuthenticated() || loading}
                   className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <span className="sr-only">Siguiente</span>
+                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
                 </button>
               </nav>
             </div>
           </div>
         </div>
       )}
+
 
       {/* Modal para nuevo proyecto */}
       {showModal && (
@@ -1319,7 +1750,9 @@ const Proyectos: React.FC = () => {
             <h2 className="proyectos-modal-title">Nuevo Proyecto</h2>
             <form onSubmit={crearProyecto} className="proyectos-modal-form">
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Nombre del Proyecto *</label>
+                <label className="proyectos-form-label">
+                  Nombre del Proyecto *
+                </label>
                 <input
                   type="text"
                   value={newProyecto.nombre}
@@ -1332,7 +1765,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Descripción *</label>
+                <label className="proyectos-form-label">
+                  Descripción *
+                </label>
                 <textarea
                   value={newProyecto.descripcion}
                   onChange={(e) => setNewProyecto({...newProyecto, descripcion: e.target.value})}
@@ -1345,7 +1780,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Categoría</label>
+                <label className="proyectos-form-label">
+                  Categoría
+                </label>
                 <input
                   type="text"
                   value={newProyecto.categoria}
@@ -1357,7 +1794,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Correo Electrónico</label>
+                <label className="proyectos-form-label">
+                  Correo Electrónico
+                </label>
                 <input
                   type="email"
                   value={newProyecto.email}
@@ -1369,7 +1808,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Número de Cédula</label>
+                <label className="proyectos-form-label">
+                  Número de Cédula
+                </label>
                 <input
                   type="text"
                   value={newProyecto.cedula}
@@ -1381,7 +1822,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Número de Teléfono</label>
+                <label className="proyectos-form-label">
+                  Número de Teléfono
+                </label>
                 <input
                   type="tel"
                   value={newProyecto.telefono}
@@ -1393,7 +1836,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Dirección</label>
+                <label className="proyectos-form-label">
+                  Dirección
+                </label>
                 <textarea
                   value={newProyecto.address}
                   onChange={(e) => setNewProyecto({...newProyecto, address: e.target.value})}
@@ -1426,7 +1871,7 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para ver documentos - EXACTAMENTE COMO EN TU IMAGEN */}
+      {/* *** MODAL PARA VER DOCUMENTOS *** */}
       {showDocumentsModal && selectedProyecto && (
         <div className="proyectos-modal-overlay">
           <div className="proyectos-modal max-w-4xl">
@@ -1485,146 +1930,151 @@ const Proyectos: React.FC = () => {
               </div>
             )}
 
-            {/* Documentos Disponibles - EXACTO COMO TU IMAGEN */}
-            {!loadingDocuments && (
-              <div className="space-y-4 mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Documentos Disponibles</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Certificado - EXACTO COMO TU IMAGEN */}
-                  <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <FileText className="w-5 h-5 text-blue-600 mr-2" />
-                        <span className="font-medium text-gray-900">Certificado</span>
-                      </div>
-                      {currentDocuments.certificate && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                          Disponible
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Certificado oficial del proyecto
-                    </p>
-                    {currentDocuments.certificate ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => openDocumentViewer(
-                            currentDocuments.certificate!, 
-                            `certificado_${selectedProyecto.id}.pdf`, 
-                            'certificate'
-                          )}
-                          className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => descargarDocumento(currentDocuments.certificate!, `certificado_${selectedProyecto.id}.pdf`)}
-                          className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Descargar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
-                        No disponible
-                      </div>
-                    )}
-                  </div>
+           {/* Documentos */}
+{!loadingDocuments && (
+  <div className="space-y-4 mb-6">
+    <h3 className="text-lg font-medium text-gray-900 mb-4">Documentos Disponibles</h3>
+    
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Certificado */}
+      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <FileText className="w-5 h-5 text-blue-600 mr-2" />
+            <span className="font-medium text-gray-900">Certificado</span>
+          </div>
+          {currentDocuments.certificate && (
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              Disponible
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Certificado oficial del proyecto
+        </p>
+        {currentDocuments.certificate ? (
+          <div className="space-y-2">
+            <button
+              onClick={() => openDocumentViewer(
+                currentDocuments.certificate!, 
+                `certificado_${selectedProyecto.id}.pdf`, 
+                'certificate'
+              )}
+              className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Ver
+            </button>
+            <button
+              onClick={() => descargarDocumento(currentDocuments.certificate!, `certificado_${selectedProyecto.id}.pdf`)}
+              className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Descargar
+            </button>
+          </div>
+        ) : (
+          <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
+            No disponible
+          </div>
+        )}
+      </div>
 
-                  {/* Documento de Identidad - EXACTO COMO TU IMAGEN */}
-                  <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <FileText className="w-5 h-5 text-green-600 mr-2" />
-                        <span className="font-medium text-gray-900">Cédula</span>
-                      </div>
-                      {currentDocuments.identityDocument && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                          Disponible
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Documento de identidad escaneado
-                    </p>
-                    {currentDocuments.identityDocument ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => openDocumentViewer(
-                            currentDocuments.identityDocument!, 
-                            `cedula_${selectedProyecto.id}.jpg`, 
-                            'identity'
-                          )}
-                          className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => descargarDocumento(currentDocuments.identityDocument!, `cedula_${selectedProyecto.id}.jpg`)}
-                          className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Descargar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
-                        No disponible
-                      </div>
-                    )}
-                  </div>
+      {/* Documento de Identidad */}
+      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <FileText className="w-5 h-5 text-green-600 mr-2" />
+            <span className="font-medium text-gray-900">Cédula</span>
+          </div>
+          {currentDocuments.identityDocument && (
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              Disponible
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Documento de identidad escaneado
+        </p>
+        {currentDocuments.identityDocument ? (
+          <div className="space-y-2">
+            <button
+              onClick={() => openDocumentViewer(
+                currentDocuments.identityDocument!, 
+                `cedula_${selectedProyecto.id}.jpg`, 
+                'identity'
+              )}
+              className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Ver
+            </button>
+            <button
+              onClick={() => descargarDocumento(currentDocuments.identityDocument!, `cedula_${selectedProyecto.id}.jpg`)}
+              className="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors flex items-center justify-center"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Descargar
+            </button>
+          </div>
+        ) : (
+          <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
+            No disponible
+          </div>
+        )}
+      </div>
 
-                  {/* Documento Firmado - EXACTO COMO TU IMAGEN */}
-                  <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <FileText className="w-5 h-5 text-purple-600 mr-2" />
-                        <span className="font-medium text-gray-900">Documento Firmado</span>
-                      </div>
-                      {currentDocuments.signedDocument && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                          Disponible
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      PDF con aprobaciones firmadas
-                    </p>
-                    {currentDocuments.signedDocument ? (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => openDocumentViewer(
-                            currentDocuments.signedDocument!, 
-                            `documento_firmado_${selectedProyecto.id}.pdf`, 
-                            'signed'
-                          )}
-                          className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => descargarDocumento(currentDocuments.signedDocument!, `documento_firmado_${selectedProyecto.id}.pdf`)}
-                          className="w-full bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors flex items-center justify-center"
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          Descargar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
-                        No disponible
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Documento Firmado */}
+      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <FileText className="w-5 h-5 text-purple-600 mr-2" />
+            <span className="font-medium text-gray-900">Documento Firmado</span>
+          </div>
+          {currentDocuments.signedDocument && (
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              Disponible
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          PDF con aprobaciones firmadas
+        </p>
+        {currentDocuments.signedDocument ? (
+          <div className="space-y-2">
+            <button
+              onClick={() => openDocumentViewer(
+                currentDocuments.signedDocument!, 
+                `documento_firmado_${selectedProyecto.id}.pdf`, 
+                'signed'
+              )}
+              className="w-full bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors flex items-center justify-center"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Ver
+            </button>
+            <button
+              onClick={() => descargarDocumento(currentDocuments.signedDocument!, `documento_firmado_${selectedProyecto.id}.pdf`)}
+              className="w-full bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors flex items-center justify-center"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Descargar
+            </button>
+          </div>
+        ) : (
+          <div className="w-full bg-gray-100 text-gray-500 px-3 py-2 rounded text-sm text-center">
+            No disponible
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+           
+           
+           
+           
+
 
             {/* Botones de acción */}
             <div className="flex justify-between items-center pt-4 border-t border-gray-200">
@@ -1670,7 +2120,7 @@ const Proyectos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para observaciones de rechazo */}
+      {/* *** MODAL PARA OBSERVACIONES DE RECHAZO - MEJORADO *** */}
       {showObservationModal && selectedProyecto && (
         <div className="proyectos-modal-overlay">
           <div className="proyectos-modal max-w-2xl">
@@ -1961,9 +2411,13 @@ const Proyectos: React.FC = () => {
                   address: newProyecto.address.trim() || undefined
                 };
                 
+                console.log('✏️ Actualizando proyecto:', selectedProyecto.id, proyectoData);
+                
                 const response = await apiService.updateProyecto(selectedProyecto.id, proyectoData);
+                console.log('📡 Respuesta de actualización:', response);
                 
                 if (response.success) {
+                  console.log('🎉 Proyecto actualizado exitosamente');
                   setShowEditModal(false);
                   setSelectedProyecto(null);
                   setNewProyecto({
@@ -1980,6 +2434,7 @@ const Proyectos: React.FC = () => {
                   await loadProyectos();
                   alert('Proyecto actualizado exitosamente');
                 } else {
+                  console.error('❌ Error al actualizar:', response.error);
                   if (response.status === 401) {
                     setError('Su sesión ha expirado. Recargue la página e inicie sesión nuevamente.');
                     apiService.clearToken();
@@ -1988,13 +2443,16 @@ const Proyectos: React.FC = () => {
                   }
                 }
               } catch (err) {
+                console.error('💥 Error de conexión al actualizar proyecto:', err);
                 alert('Error de conexión al actualizar proyecto');
               } finally {
                 setLoading(false);
               }
             }} className="proyectos-modal-form">
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Nombre del Proyecto *</label>
+                <label className="proyectos-form-label">
+                  Nombre del Proyecto *
+                </label>
                 <input
                   type="text"
                   value={newProyecto.nombre}
@@ -2007,7 +2465,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Descripción *</label>
+                <label className="proyectos-form-label">
+                  Descripción *
+                </label>
                 <textarea
                   value={newProyecto.descripcion}
                   onChange={(e) => setNewProyecto({...newProyecto, descripcion: e.target.value})}
@@ -2020,7 +2480,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Categoría</label>
+                <label className="proyectos-form-label">
+                  Categoría
+                </label>
                 <input
                   type="text"
                   value={newProyecto.categoria}
@@ -2032,7 +2494,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Correo Electrónico</label>
+                <label className="proyectos-form-label">
+                  Correo Electrónico
+                </label>
                 <input
                   type="email"
                   value={newProyecto.email}
@@ -2044,7 +2508,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Número de Cédula</label>
+                <label className="proyectos-form-label">
+                  Número de Cédula
+                </label>
                 <input
                   type="text"
                   value={newProyecto.cedula}
@@ -2056,7 +2522,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Número de Teléfono</label>
+                <label className="proyectos-form-label">
+                  Número de Teléfono
+                </label>
                 <input
                   type="tel"
                   value={newProyecto.telefono}
@@ -2068,7 +2536,9 @@ const Proyectos: React.FC = () => {
               </div>
               
               <div className="proyectos-form-group">
-                <label className="proyectos-form-label">Dirección</label>
+                <label className="proyectos-form-label">
+                  Dirección
+                </label>
                 <textarea
                   value={newProyecto.address}
                   onChange={(e) => setNewProyecto({...newProyecto, address: e.target.value})}
@@ -2114,18 +2584,6 @@ const Proyectos: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Visor de documentos - VENTANA FLOTANTE COMPLETA */}
-      <DocumentViewer
-        isOpen={showDocumentViewer}
-        onClose={() => {
-          setShowDocumentViewer(false);
-          setCurrentViewDocument(null);
-        }}
-        documentData={currentViewDocument?.data}
-        documentName={currentViewDocument?.name}
-        documentType={currentViewDocument?.type}
-      />
 
       {/* Debug info en desarrollo */}
       {process.env.NODE_ENV === 'development' && (
