@@ -28,6 +28,7 @@ interface ProyectoStats {
   totalProyectos: number;
   pendientes: number;
   aprobados: number;
+  rechazados: number;
 }
 
 // Nueva interfaz para documentos
@@ -43,15 +44,12 @@ const validarEstado = (estado: string | undefined): 'pendiente' | 'aprobado' | '
   
   const estadoLower = estado.toLowerCase();
   
-  console.log(`🔍 Validando estado: "${estado}" -> Lower: "${estadoLower}"`);
-  
   switch (estadoLower) {
     case 'pending':
     case 'pendiente':
       return 'pendiente';
     case 'approved':
     case 'aprobado':
-    case 'validated':
       return 'aprobado';
     case 'rejected':
     case 'rechazado':
@@ -71,7 +69,6 @@ const validarEstado = (estado: string | undefined): 'pendiente' | 'aprobado' | '
       if ((estadosValidos as readonly string[]).includes(estado)) {
         return estado as 'pendiente' | 'aprobado' | 'rechazado' | 'en-progreso' | 'completado';
       }
-      console.log(`⚠️ Estado no reconocido: "${estado}", usando 'pendiente' por defecto`);
       return 'pendiente';
     }
   }
@@ -84,7 +81,8 @@ const Proyectos: React.FC = () => {
   const [stats, setStats] = useState<ProyectoStats>({
     totalProyectos: 0,
     pendientes: 0,
-    aprobados: 0
+    aprobados: 0,
+    rechazados: 0
   });
   
   // *** COMPONENTE DOCUMENTVIEWER COMPLETO ***
@@ -313,15 +311,6 @@ const Proyectos: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-
-  // Función wrapper para setCurrentPage que valida valores negativos
-  const setCurrentPageSafe = (page: number) => {
-    const validPage = Math.max(0, page);
-    if (page !== validPage) {
-      console.warn(`⚠️ Página corregida de ${page} a ${validPage}`);
-    }
-    setCurrentPage(validPage);
-  };
   
   // Estados para UI
   const [loading, setLoading] = useState(false);
@@ -531,60 +520,44 @@ const Proyectos: React.FC = () => {
         return;
       }
       
-      // Obtener datos de negocios que funcionan como proyectos
-      const response = await apiService.getProyectos(page, size);
+      const response = await apiService.getProyectosPendientes(page, size);
       
       if (response.success && response.data) {
-        console.log('📊 Datos recibidos del endpoint:', response.data);
+        const proyectosLimpios = response.data.content.filter(proyecto => proyecto && proyecto.id);
         
-        // Los datos vienen en response.data.data.content (estructura de negocios)
-        const negociosData = response.data.data?.content || response.data.content || [];
-        const negociosLimpios = negociosData.filter(negocio => negocio && negocio.id);
-        
-        console.log(`📋 Procesando ${negociosLimpios.length} negocios como proyectos`);
-        
-        const proyectosNormalizados = negociosLimpios.map(negocio => {
-          const estadoOriginal = negocio.validationStatus || negocio.estado || negocio.status;
-          const estadoNormalizado = validarEstado(estadoOriginal);
-          
-          console.log(`📋 Negocio ${negocio.id}: "${negocio.commercialName}" - Estado original: "${estadoOriginal}" -> Normalizado: "${estadoNormalizado}"`);
-          console.log(`📋 Datos completos del negocio:`, negocio);
+        const proyectosNormalizados = proyectosLimpios.map(proyecto => {
+          const datosPrueba = {
+            phone: '0987654321',
+            address: 'Av. Amazonas y Naciones Unidas, Quito',
+            email: 'usuario@ejemplo.com',
+            cedula: '1234567890'
+          };
           
           return {
-            id: negocio.id,
-            nombre: negocio.commercialName || negocio.nombre || '',
-            descripcion: negocio.description || negocio.descripcion || '',
-            estado: estadoNormalizado,
-            fechaEnvio: negocio.createdAt || negocio.fechaEnvio || new Date().toISOString(),
-            responsable: negocio.representativeName || negocio.responsable || '',
-            presupuesto: negocio.presupuesto || 0,
-            categoria: negocio.category?.name || negocio.categoria || '',
-            fechaInicio: negocio.fechaInicio || '',
-            fechaFin: negocio.fechaFin || '',
-            email: negocio.email || '',
-            cedula: negocio.cedulaOrRuc || negocio.cedula || '',
-            telefono: negocio.phone || negocio.telefono || '',
-            address: negocio.parishCommunitySector || negocio.address || ''
+            id: proyecto.id,
+            nombre: proyecto.nombre || proyecto.name || proyecto.title || '',
+            descripcion: proyecto.descripcion || proyecto.description || proyecto.desc || '',
+            estado: validarEstado(proyecto.estado || proyecto.status),
+            fechaEnvio: proyecto.fechaEnvio || proyecto.fecha_envio || '',
+            responsable: proyecto.responsable || proyecto.responsible || proyecto.autor || '',
+            presupuesto: proyecto.presupuesto || proyecto.budget || 0,
+            categoria: proyecto.categoria || proyecto.category || proyecto.cat || '',
+            fechaInicio: proyecto.fechaInicio || proyecto.fecha_inicio || proyecto.startDate || '',
+            fechaFin: proyecto.fechaFin || proyecto.fecha_fin || proyecto.endDate || '',
+            email: proyecto.email || proyecto.correo || proyecto.mail || datosPrueba.email,
+            cedula: proyecto.cedula || proyecto.identification || proyecto.identificacion || datosPrueba.cedula,
+            telefono: proyecto.phone || proyecto.telefono || proyecto.tel || proyecto.celular || datosPrueba.phone,
+            address: proyecto.address || proyecto.direccion || proyecto.location || datosPrueba.address
           } as ProyectoAPI;
         });
         
-        console.log(`📊 Proyectos normalizados finales:`, proyectosNormalizados);
         setProyectos(proyectosNormalizados);
-        
-        // Usar la estructura correcta de datos de negocios
-        const paginationData = response.data.data || response.data;
-        setTotalPages(paginationData.totalPages || 1);
-        setTotalElements(paginationData.totalElements || proyectosNormalizados.length);
-        setCurrentPageSafe(paginationData.pageable?.pageNumber || 0);
+        setTotalPages(response.data.totalPages);
+        setTotalElements(response.data.totalElements);
+        setCurrentPage(response.data.pageable.pageNumber);
         
         setTimeout(() => filtrarProyectos(), 0);
         setRenderError('');
-        
-        // Calcular estadísticas locales después de cargar los proyectos
-        setTimeout(() => {
-          console.log('📊 Calculando estadísticas con proyectos cargados:', proyectosNormalizados.length);
-          calcularEstadisticasLocales(proyectosNormalizados);
-        }, 100);
         
       } else {
         if (response.status === 401) {
@@ -613,47 +586,31 @@ const Proyectos: React.FC = () => {
         apiService.getAdminDashboardStats()
       ]);
 
-      let total = 0, pending = 0, approved = 0;
+      let total = 0, pending = 0, approved = 0, rejected = 0;
 
       if (bizStatsRes.status === 'fulfilled' && bizStatsRes.value.success && bizStatsRes.value.data) {
         const d: any = bizStatsRes.value.data;
         total = Number(d.total ?? d.totalUsers ?? 0);
         pending = Number(d.pending ?? d.pendingUsers ?? 0);
         approved = Number(d.approved ?? d.approvedUsers ?? 0);
+        rejected = Number(d.rejected ?? d.rejectedUsers ?? 0);
       } else if (adminStatsRes.status === 'fulfilled' && adminStatsRes.value.success && adminStatsRes.value.data) {
         const d: any = adminStatsRes.value.data;
         total = Number(d.totalUsers ?? d.total ?? 0);
         pending = Number(d.pendingUsers ?? d.pending ?? 0);
         approved = Number(d.approvedUsers ?? d.approved ?? 0);
+        rejected = Number(d.rejectedUsers ?? d.rejected ?? 0);
       }
 
       setStats({
         totalProyectos: total,
         pendientes: pending,
-        aprobados: approved
+        aprobados: approved,
+        rechazados: rejected
       });
     } catch (e) {
       console.warn('No se pudieron cargar estadísticas del backend');
-      // Calcular estadísticas locales como respaldo
-      calcularEstadisticasLocales();
     }
-  };
-
-  // Calcular estadísticas locales usando los datos cargados
-  const calcularEstadisticasLocales = (proyectosData?: ProyectoAPI[]) => {
-    const proyectosACalcular = proyectosData || proyectos;
-    const total = proyectosACalcular.length;
-    const pendientes = proyectosACalcular.filter(proyecto => validarEstado(proyecto.estado) === 'pendiente').length;
-    const aprobados = proyectosACalcular.filter(proyecto => validarEstado(proyecto.estado) === 'aprobado').length;
-
-    console.log(`📊 Estadísticas locales calculadas: Total=${total}, Pendientes=${pendientes}, Aprobados=${aprobados}`);
-    console.log(`📊 Proyectos para calcular:`, proyectosACalcular.map(p => ({ nombre: p.nombre, estado: p.estado })));
-
-    setStats({
-      totalProyectos: total,
-      pendientes: pendientes,
-      aprobados: aprobados
-    });
   };
 
   // Aprobar proyecto
@@ -744,7 +701,7 @@ const Proyectos: React.FC = () => {
   // Cambiar página
   const changePage = (newPage: number) => {
     if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPageSafe(newPage);
+      setCurrentPage(newPage);
       loadProyectos(newPage, pageSize);
     }
   };
@@ -752,25 +709,18 @@ const Proyectos: React.FC = () => {
   // Cambiar tamaño de página
   const changePageSize = (newSize: number) => {
     setPageSize(newSize);
-    setCurrentPageSafe(0);
+    setCurrentPage(0);
     loadProyectos(0, newSize);
   };
 
   // Función para filtrar proyectos
   const filtrarProyectos = useCallback(() => {
-    console.log(`🔍 Iniciando filtrado - Total proyectos: ${proyectos.length}, Filtro actual: "${filterStatus}", Búsqueda: "${searchTerm}"`);
-    
     let proyectosFiltrados = proyectos;
 
     if (filterStatus !== 'all') {
-      console.log(`🎯 Aplicando filtro de estado: "${filterStatus}"`);
-      proyectosFiltrados = proyectosFiltrados.filter(proyecto => {
-        const estadoNormalizado = validarEstado(proyecto.estado);
-        const coincide = estadoNormalizado === filterStatus;
-        console.log(`🔍 Proyecto: "${proyecto.nombre}" - Estado: "${proyecto.estado}" -> Normalizado: "${estadoNormalizado}" - Filtro: "${filterStatus}" - Coincide: ${coincide}`);
-        return coincide;
-      });
-      console.log(`✅ Después del filtro de estado: ${proyectosFiltrados.length} proyectos`);
+      proyectosFiltrados = proyectosFiltrados.filter(proyecto => 
+        proyecto.estado === filterStatus
+      );
     }
 
     if (searchTerm.trim() !== '') {
@@ -789,13 +739,12 @@ const Proyectos: React.FC = () => {
       proyecto.nombre && proyecto.nombre.trim() !== ''
     );
 
-    console.log(`📊 Filtrado completado: ${proyectosFiltrados.length} proyectos de ${proyectos.length} totales`);
     setProyectosFiltrados(proyectosFiltrados);
   }, [proyectos, filterStatus, searchTerm]);
 
   const handleFilterChange = (newFilter: string) => {
     setFilterStatus(newFilter);
-    setCurrentPageSafe(0);
+    setCurrentPage(0);
     setTimeout(() => filtrarProyectos(), 0);
   };
 
@@ -955,7 +904,7 @@ const Proyectos: React.FC = () => {
                     <Eye className="w-4 h-4" />
                     <span>Ver</span>
                   </button>
-                {/*  <button 
+                  <button 
                     onClick={() => {
                       setSelectedProyecto(proyecto);
                       setNewProyecto({
@@ -1011,7 +960,7 @@ const Proyectos: React.FC = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Eliminar</span>
-                  </button>*/}
+                  </button>
                 </>
               )}
             </div>
@@ -1114,7 +1063,17 @@ const Proyectos: React.FC = () => {
             </div>
           </div>
         </div>
-
+        <div className="proyectos-stat-card">
+          <div className="proyectos-stat-content">
+            <div>
+              <p className="proyectos-stat-text-sm">Rechazados</p>
+              <p className="proyectos-stat-text-lg">{stats.rechazados}</p>
+            </div>
+            <div className="proyectos-stat-icon-container bg-red-100">
+              <X className="proyectos-stat-icon text-red-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filtros y búsqueda */}
@@ -1129,7 +1088,7 @@ const Proyectos: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
-                  setCurrentPageSafe(0);
+                  setCurrentPage(0);
                   filtrarProyectos();
                 }
               }}
@@ -1151,6 +1110,8 @@ const Proyectos: React.FC = () => {
                 <option value="pendiente">Pendiente</option>
                 <option value="aprobado">Aprobado</option>
                 <option value="rechazado">Rechazado</option>
+                <option value="en-progreso">En Progreso</option>
+                <option value="completado">Completado</option>
               </select>
             </div>
 
@@ -1169,7 +1130,14 @@ const Proyectos: React.FC = () => {
               </select>
             </div>
 
-
+            <button
+              onClick={() => setShowModal(true)}
+              className="proyectos-add-button"
+              disabled={loading || !apiService.isAuthenticated()}
+            >
+              <Plus className="w-5 h-5" />
+              <span>Nuevo Proyecto</span>
+            </button>
           </div>
         </div>
       </div>

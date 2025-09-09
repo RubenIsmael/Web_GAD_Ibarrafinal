@@ -804,36 +804,7 @@ setPromociones(prevPromociones =>
       <div className="promociones-stats-grid">
         <div className="promociones-stat-card">
           <div className="promociones-stat-content">
-            <div>
-              <p className="promociones-stat-text-sm">Total Promociones</p>
-              <p className="promociones-stat-text-lg">{promociones.length}</p>
-            </div>
-            <div className="promociones-stat-icon-container bg-blue-100">
-              <Tag className="promociones-stat-icon text-blue-600" />
-            </div>
-          </div>
-        </div>
-        <div className="promociones-stat-card">
-          <div className="promociones-stat-content">
-            <div>
-              <p className="promociones-stat-text-sm">Activas</p>
-              <p className="promociones-stat-text-lg">{promociones.filter(p => getEstadoReal(p) === 'ACTIVA').length}</p>
-            </div>
-            <div className="promociones-stat-icon-container bg-green-100">
-              <Tag className="promociones-stat-icon text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="promociones-stat-card">
-          <div className="promociones-stat-content">
-            <div>
-              <p className="promociones-stat-text-sm">Caducadas</p>
-              <p className="promociones-stat-text-lg">{promociones.filter(p => getEstadoReal(p) === 'CADUCADA').length}</p>
-            </div>
-            <div className="promociones-stat-icon-container bg-red-100">
-              <X className="promociones-stat-icon text-red-600" />
-            </div>
-          </div>
+             </div>
         </div>
       </div>
 
