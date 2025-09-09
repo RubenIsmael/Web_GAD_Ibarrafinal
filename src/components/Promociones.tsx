@@ -1,113 +1,50 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, Tag, Image, Clock, X, Check, ExternalLink } from 'lucide-react';
-import { ApiService } from './login/ApiService';
-import html2canvas from 'html2canvas';
+import { Store, Plus, Search, Filter, MapPin, Phone, Mail, Eye, Edit, Trash2, Building, User, Calendar, FileText, Download, Tag, Image, Clock, X, Check, ExternalLink, AlertCircle } from 'lucide-react';
+import { apiPromocion, Promocion, PromocionFiltros, EstadisticasPromociones } from './login/ApiPromocion';
 import '../styles/promociones.css';
-
-// Usar la misma instancia global del servicio
-const apiService = new ApiService();
-
-// Interfaces para promociones
-interface Promocion {
-  id: number;
-  nombreLocal: string;
-  datosPersona: {
-    nombre: string;
-    cedula: string;
-    telefono: string;
-    email: string;
-  };
-  descripcionPromocion: string;
-  fechaInicio: string;
-  fechaFin: string;
-  logoEmpresa?: string;
-  imagenPromocion?: string;
-     estado: 'ACTIVA' | 'PENDIENTE' | 'RECHAZADA';
-  categoria: string;
-  descuento?: number;
-  precioOriginal?: number;
-  precioPromocional?: number;
-}
-
-// Interfaces para locales comerciales
-interface BusinessAPI {
-  id: number;
-  commercialName: string;
-  representativeName: string;
-  cedulaOrRuc: string;
-  phone: string;
-  email: string;
-  logoUrl?: string;
-  category: {
-    id: number;
-    name: string;
-  };
-}
 
 const Promociones: React.FC = () => {
   // Estados para promociones
   const [promociones, setPromociones] = useState<Promocion[]>([]);
-  const [promocionesFiltradas, setPromocionesFiltradas] = useState<Promocion[]>([]);
-  const [locales, setLocales] = useState<BusinessAPI[]>([]);
+  const [promocionesPaginadas, setPromocionesPaginadas] = useState<Promocion[]>([]);
+  const [estadisticas, setEstadisticas] = useState<EstadisticasPromociones | null>(null);
   
   // Estados para filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'activa' | 'caducada'>('all');
   const [filterCategoria, setFilterCategoria] = useState('all');
   
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   
   // Estados para UI
   const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string>('');
   const [backendStatus, setBackendStatus] = useState<'connected' | 'error' | 'unknown'>('unknown');
   
-  // Estados para nueva promoción
-  const [newPromocion, setNewPromocion] = useState({
-    nombreLocal: '',
-    datosPersona: {
-      nombre: '',
-      cedula: '',
-      telefono: '',
-      email: ''
-    },
-    descripcionPromocion: '',
-    fechaInicio: '',
-    fechaFin: '',
-    logoEmpresa: '',
-    imagenPromocion: '',
-    categoria: '',
-    descuento: 0,
-    precioOriginal: 0,
-    precioPromocional: 0
-  });
-
   // Estados para modales
   const [selectedPromocion, setSelectedPromocion] = useState<Promocion | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
 
-  // Función unificada para verificar token
+  // Función para verificar token
   const verificarToken = (): boolean => {
     console.log('🔍 Verificando estado de autenticación...');
 
-    const token = apiService.getCurrentToken();
-    const isAuth = apiService.isAuthenticated();
+    const isAuth = apiPromocion.isAuthenticated();
 
-    if (!isAuth || !token) {
+    if (!isAuth) {
       console.error('❌ No hay token de autenticación válido');
       setError('Sesión expirada. Por favor, inicie sesión nuevamente.');
       return false;
     }
 
-    if (apiService.isTokenExpired()) {
+    if (apiPromocion.isTokenExpired()) {
       console.warn('⚠️ Token expirado');
       setError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
-      apiService.clearToken();
+      apiPromocion.clearToken();
       return false;
     }
 
@@ -115,421 +52,240 @@ const Promociones: React.FC = () => {
     return true;
   };
 
-  // Cargar promociones desde la API (simulado por ahora)
-  const loadPromociones = async () => {
+  // Cargar promociones desde la API
+  const loadPromociones = async (page: number = 0, resetData: boolean = false) => {
     try {
       setLoading(true);
-      setError('');
+      if (resetData) {
+        setError('');
+      }
 
       if (!verificarToken()) {
         setLoading(false);
         return;
       }
 
-      // Simular carga de promociones (en producción esto vendría de la API)
-      const promocionesSimuladas: Promocion[] = [
-        {
-          id: 1,
-          nombreLocal: "Restaurante El Sabor",
-          datosPersona: {
-            nombre: "María González",
-            cedula: "1234567890",
-            telefono: "0987654321",
-            email: "maria@elsabor.com"
-          },
-          descripcionPromocion: "2x1 en platos principales todos los martes",
-          fechaInicio: "2024-01-01",
-          fechaFin: "2024-12-31",
-          logoEmpresa: "", // Se llenará con la imagen del backend
-          imagenPromocion: "", // Se llenará con la imagen del backend
-                     estado: 'ACTIVA',
-           categoria: 'Alimentos',
-           descuento: 50,
-           precioOriginal: 15,
-           precioPromocional: 7.5
-         },
-         {
-           id: 2,
-           nombreLocal: "Farmacia San José",
-           datosPersona: {
-             nombre: "Carlos Rodríguez",
-             cedula: "0987654321",
-             telefono: "1234567890",
-             email: "carlos@farmaciasanjose.com"
-           },
-           descripcionPromocion: "20% de descuento en productos de cuidado personal",
-           fechaInicio: "2024-01-15",
-           fechaFin: "2024-02-15",
-           logoEmpresa: "", // Se llenará con la imagen del backend
-           imagenPromocion: "", // Se llenará con la imagen del backend
-           estado: 'PENDIENTE',
-           categoria: 'Salud',
-           descuento: 20,
-           precioOriginal: 25,
-           precioPromocional: 20
-         },
-         {
-           id: 3,
-           nombreLocal: "Tienda de Ropa Moda Express",
-           datosPersona: {
-             nombre: "Ana Pérez",
-             cedula: "1122334455",
-             telefono: "5566778899",
-             email: "ana@modaexpress.com"
-           },
-           descripcionPromocion: "Liquidación de verano: hasta 70% de descuento",
-           fechaInicio: "2024-01-20",
-           fechaFin: "2024-02-20",
-           logoEmpresa: "", // Se llenará con la imagen del backend
-           imagenPromocion: "", // Se llenará con la imagen del backend
-           estado: 'RECHAZADA',
-           categoria: 'Comercio',
-           descuento: 70,
-           precioOriginal: 100,
-           precioPromocional: 30
-         }
-      ];
+      console.log(`📋 Cargando promociones - Página: ${page}, Tamaño: ${pageSize}`);
 
-             // Aplicar orden LIFO (Last In, First Out) - las más recientes primero
-       const promocionesOrdenadas = [...promocionesSimuladas].sort((a, b) => b.id - a.id);
-       setPromociones(promocionesOrdenadas);
-       setPromocionesFiltradas(promocionesOrdenadas);
-       setTotalPages(Math.ceil(promocionesOrdenadas.length / pageSize));
+      // Preparar filtros
+      const filtros: PromocionFiltros = {};
       
-      console.log('✅ Promociones cargadas exitosamente');
+      if (searchTerm.trim()) {
+        filtros.searchTerm = searchTerm.trim();
+      }
+
+      if (filterStatus !== 'all') {
+        filtros.isActive = filterStatus === 'activa';
+      }
+
+      if (filterCategoria !== 'all') {
+        filtros.category = filterCategoria;
+      }
+
+      // Buscar promociones con paginación
+      const response = await apiPromocion.buscarPromociones(filtros, page, pageSize);
+
+      if (response.success && response.data) {
+        const { content, totalElements: total, totalPages: pages } = response.data;
+        
+        // Verificar y actualizar estado de promociones automáticamente
+        const promocionesActualizadas = content.map(promocion => ({
+          ...promocion,
+          isActive: apiPromocion.isPromocionActiva(promocion)
+        }));
+
+        setPromocionesPaginadas(promocionesActualizadas);
+        setTotalElements(total);
+        setTotalPages(pages);
+        setCurrentPage(page);
+        setBackendStatus('connected');
+        
+        console.log(`✅ Promociones cargadas: ${promocionesActualizadas.length} de ${total} total`);
+        
+        // Cargar todas las promociones para estadísticas si es la primera página
+        if (page === 0 || resetData) {
+          loadTodasLasPromociones();
+        }
+
+      } else {
+        console.error('❌ Error en respuesta:', response.error);
+        setError(response.error || 'Error al cargar las promociones');
+        setBackendStatus('error');
+      }
 
     } catch (err) {
       console.error('💥 Error cargando promociones:', err);
       setError('Error al cargar las promociones');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Función para hacer peticiones con reintentos
-  const makeRequestWithRetry = async (url: string, options: any, maxRetries: number = 3): Promise<any> => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`🔄 Intento ${attempt}/${maxRetries} para: ${url}`);
-        const response = await apiService.request(url, options);
-        
-        // Verificar que la respuesta sea válida
-        if (response && (response.success || response.data)) {
-          console.log(`✅ Intento ${attempt} exitoso`);
-          return response;
-        } else {
-          console.warn(`⚠️ Intento ${attempt} falló - Respuesta inválida:`, response);
-          if (attempt === maxRetries) {
-            throw new Error('Respuesta del backend inválida después de todos los intentos');
-          }
-        }
-      } catch (error) {
-        console.warn(`⚠️ Intento ${attempt} falló:`, error);
-        if (attempt === maxRetries) {
-          throw error;
-        }
-        // Esperar antes del siguiente intento con backoff exponencial
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-        console.log(`⏳ Esperando ${delay}ms antes del siguiente intento...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  };
-
-  // Cargar locales comerciales
-  const loadLocales = async () => {
-    try {
-      if (!verificarToken()) return;
-
-      console.log('🔍 Verificando imágenes disponibles en el backend...');
-      setBackendStatus('unknown');
-      
-      const response: any = await makeRequestWithRetry('/business/private-list-by-category?page=0&size=100', {
-        method: 'GET'
-      });
-
-      if (response && response.success && response.data && response.data.data) {
-        const localesData = response.data.data.content;
-        setLocales(localesData);
-        setBackendStatus('connected');
-        
-        // Verificar si hay imágenes disponibles
-        const localesConImagenes = localesData.filter((local: BusinessAPI) => local.logoUrl);
-        console.log(`📊 Total de locales: ${localesData.length}`);
-        console.log(`🖼️ Locales con imágenes: ${localesConImagenes.length}`);
-        
-        if (localesConImagenes.length > 0) {
-          console.log('✅ Imágenes disponibles en el backend:');
-          localesConImagenes.forEach((local: BusinessAPI) => {
-            console.log(`   - ${local.commercialName}: ${local.logoUrl}`);
-          });
-          
-         
-// Asignar imágenes del backend a las promociones correspondientes
-setPromociones(prevPromociones => 
-  prevPromociones.map(promocion => {
-    const localBackend = localesData.find((local: BusinessAPI) => 
-      local.commercialName.toLowerCase().includes(promocion.nombreLocal.toLowerCase()) ||
-      promocion.nombreLocal.toLowerCase().includes(local.commercialName.toLowerCase())
-    );
-    
-    if (localBackend && localBackend.logoUrl) {
-      console.log(`🔄 Asignando imagen del backend a: ${promocion.nombreLocal}`);
-      return { 
-        ...promocion, 
-        logoEmpresa: localBackend.logoUrl,
-        // Generar imagen de promoción basada en el logo del backend
-        imagenPromocion: generarImagenesPromocion(localBackend.logoUrl)
-      };
-    }
-    
-    return promocion;
-  })
-);
-} else {
-  console.log('⚠️ No hay imágenes disponibles en el backend');
-  // Usar imágenes por defecto si no hay imágenes en el backend
-  setPromociones(prevPromociones => 
-    prevPromociones.map(promocion => ({
-      ...promocion,
-      logoEmpresa: `https://picsum.photos/200/200?random=${promocion.id}`,
-      imagenPromocion: `https://picsum.photos/400/250?random=${promocion.id + 100}`
-    }))
-  );
-}
-        
-        // Mostrar información en la consola para debugging
-        console.log('📋 Datos completos de locales:', localesData);
-      } else {
-        console.warn('⚠️ Respuesta del backend sin datos válidos:', response);
-        setBackendStatus('error');
-        // Usar imágenes por defecto si la respuesta no es válida
-        setPromociones(prevPromociones => 
-          prevPromociones.map(promocion => ({
-            ...promocion,
-            logoEmpresa: `https://picsum.photos/200/200?random=${promocion.id}`,
-            imagenPromocion: `https://picsum.photos/400/250?random=${promocion.id + 100}`
-          }))
-        );
-      }
-    } catch (err) {
-      console.error('❌ Error cargando locales:', err);
       setBackendStatus('error');
-      
-      // Si hay error, usar imágenes por defecto
-      console.log('🔄 Usando imágenes por defecto debido al error del backend');
-      setPromociones(prevPromociones => 
-        prevPromociones.map(promocion => ({
-          ...promocion,
-          logoEmpresa: `https://picsum.photos/200/200?random=${promocion.id}`,
-          imagenPromocion: `https://picsum.photos/400/250?random=${promocion.id + 100}`
-        }))
-      );
-    }
-  };
-
-  // Crear promoción
-  const crearPromocion = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newPromocion.nombreLocal.trim() || !newPromocion.descripcionPromocion.trim()) {
-      alert('Nombre del local y descripción de la promoción son requeridos');
-      return;
-    }
-
-    try {
-      if (!verificarToken()) return;
-
-      setLoading(true);
-      
-      // Simular creación (en producción esto se enviaría a la API)
-      const nuevaPromocion: Promocion = {
-        id: Date.now(),
-        ...newPromocion,
-        estado: 'ACTIVA'
-      };
-
-             // Aplicar LIFO: nueva promoción al principio
-       setPromociones(prev => [nuevaPromocion, ...prev]);
-       setPromocionesFiltradas(prev => [nuevaPromocion, ...prev]);
-      
-      setShowModal(false);
-      setNewPromocion({
-        nombreLocal: '',
-        datosPersona: {
-          nombre: '',
-          cedula: '',
-          telefono: '',
-          email: ''
-        },
-        descripcionPromocion: '',
-        fechaInicio: '',
-        fechaFin: '',
-        logoEmpresa: '',
-        imagenPromocion: '',
-        categoria: '',
-        descuento: 0,
-        precioOriginal: 0,
-        precioPromocional: 0
-      });
-      
-      alert('Promoción creada exitosamente');
-      
-    } catch (err) {
-      console.error('Error al crear promoción:', err);
-      alert('Error al crear promoción');
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para filtrar promociones
-  const filtrarPromociones = useCallback(() => {
-    let promocionesFiltradas = promociones;
-
-         // Filtrar por estado
-     if (filterStatus !== 'all') {
-       if (filterStatus === 'activa') {
-         promocionesFiltradas = promocionesFiltradas.filter(promocion => 
-           getEstadoReal(promocion) === 'ACTIVA'
-         );
-       } else if (filterStatus === 'caducada') {
-         promocionesFiltradas = promocionesFiltradas.filter(promocion => 
-           getEstadoReal(promocion) === 'CADUCADA'
-         );
-       }
-     }
-
-    // Filtrar por categoría
-    if (filterCategoria !== 'all') {
-      promocionesFiltradas = promocionesFiltradas.filter(promocion => 
-        promocion.categoria.toLowerCase() === filterCategoria.toLowerCase()
-      );
-    }
-
-    // Filtrar por búsqueda
-    if (searchTerm.trim() !== '') {
-      const terminoBusqueda = searchTerm.toLowerCase();
-      promocionesFiltradas = promocionesFiltradas.filter(promocion =>
-        promocion.nombreLocal.toLowerCase().includes(terminoBusqueda) ||
-        promocion.datosPersona.nombre.toLowerCase().includes(terminoBusqueda) ||
-        promocion.descripcionPromocion.toLowerCase().includes(terminoBusqueda) ||
-        promocion.categoria.toLowerCase().includes(terminoBusqueda)
-      );
-    }
-
-         // Mantener orden LIFO en los filtros
-     const promocionesFiltradasOrdenadas = promocionesFiltradas.sort((a, b) => b.id - a.id);
-     setPromocionesFiltradas(promocionesFiltradasOrdenadas);
-     setTotalPages(Math.ceil(promocionesFiltradasOrdenadas.length / pageSize));
-  }, [promociones, filterStatus, filterCategoria, searchTerm, pageSize]);
-
-  // Cambiar página
-  const changePage = (newPage: number) => {
-    if (newPage >= 0 && newPage < totalPages) {
-      setCurrentPage(newPage);
+  // Cargar todas las promociones para estadísticas
+  const loadTodasLasPromociones = async () => {
+    try {
+      const response = await apiPromocion.obtenerPromocionesPublicas();
+      
+      if (response.success && response.data) {
+        // Verificar y actualizar estado automáticamente
+        const promocionesActualizadas = response.data.map(promocion => ({
+          ...promocion,
+          isActive: apiPromocion.isPromocionActiva(promocion)
+        }));
+        
+        setPromociones(promocionesActualizadas);
+        await loadEstadisticas();
+      }
+    } catch (err) {
+      console.error('Error cargando todas las promociones:', err);
     }
   };
 
-  // Cambiar tamaño de página
+  // Cargar estadísticas
+  const loadEstadisticas = async () => {
+    try {
+      const response = await apiPromocion.obtenerEstadisticas();
+      
+      if (response.success && response.data) {
+        setEstadisticas(response.data);
+      }
+    } catch (err) {
+      console.error('Error cargando estadísticas:', err);
+    }
+  };
+
+  // Función para cambiar página
+  const changePage = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+      loadPromociones(newPage);
+    }
+  };
+
+  // Función para cambiar tamaño de página
   const changePageSize = (newSize: number) => {
     setPageSize(newSize);
     setCurrentPage(0);
-    setTotalPages(Math.ceil(promocionesFiltradas.length / newSize));
+    loadPromociones(0, true);
   };
 
-  const handleFilterChange = (newFilter: string) => {
-    setFilterStatus(newFilter);
+  // Función para aplicar filtros
+  const aplicarFiltros = useCallback(() => {
     setCurrentPage(0);
-    setTimeout(() => filtrarPromociones(), 0);
+    loadPromociones(0, true);
+  }, [searchTerm, filterStatus, filterCategoria, pageSize]);
+
+  // Funciones para manejar cambios en filtros
+  const handleFilterChange = (newFilter: 'all' | 'activa' | 'caducada') => {
+    setFilterStatus(newFilter);
   };
 
   const handleCategoriaChange = (newCategoria: string) => {
     setFilterCategoria(newCategoria);
-    setCurrentPage(0);
-    setTimeout(() => filtrarPromociones(), 0);
   };
 
   // Efecto inicial
   useEffect(() => {
     console.log('🚀 Iniciando componente Promociones...');
-    loadPromociones();
-    loadLocales();
+    loadPromociones(0, true);
   }, []);
 
   // Efecto para búsqueda con debounce
   useEffect(() => {
-    if (!apiService.isAuthenticated()) return;
+    if (!apiPromocion.isAuthenticated()) return;
 
     const delayedSearch = setTimeout(() => {
-      filtrarPromociones();
+      aplicarFiltros();
     }, 500);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchTerm, filtrarPromociones]);
+  }, [searchTerm]);
 
-  // Efecto para aplicar filtros cuando cambien las promociones
+  // Efecto para aplicar filtros cuando cambien
   useEffect(() => {
-    if (promociones.length > 0) {
-      filtrarPromociones();
+    if (apiPromocion.isAuthenticated()) {
+      aplicarFiltros();
     }
-  }, [promociones, filtrarPromociones]);
+  }, [filterStatus, filterCategoria]);
 
   // Efecto para actualizar estados automáticamente cada minuto
   useEffect(() => {
     const interval = setInterval(() => {
-      // Forzar re-render para actualizar estados basados en fechas
-      setPromociones(prev => [...prev]);
+      // Verificar promociones caducadas y actualizarlas automáticamente
+      if (promocionesPaginadas.length > 0) {
+        const promocionesActualizadas = promocionesPaginadas.map(promocion => ({
+          ...promocion,
+          isActive: apiPromocion.isPromocionActiva(promocion)
+        }));
+        
+        // Solo actualizar si hay cambios en el estado
+        const hayChangios = promocionesActualizadas.some((p, index) => 
+          p.isActive !== promocionesPaginadas[index]?.isActive
+        );
+        
+        if (hayChangios) {
+          console.log('🔄 Actualizando estados de promociones automáticamente');
+          setPromocionesPaginadas(promocionesActualizadas);
+        }
+      }
     }, 60000); // Actualizar cada minuto
 
     return () => clearInterval(interval);
-  }, []);
+  }, [promocionesPaginadas]);
 
-  // Función para verificar el estado de una promoción basado en fechas
-  const verificarEstadoPorFechas = (fechaInicio: string, fechaFin: string): 'ACTIVA' | 'CADUCADA' => {
-    const fechaActual = new Date();
-    const inicio = new Date(fechaInicio);
-    const fin = new Date(fechaFin);
-    
-    // Verificar si la fecha actual está entre inicio y fin
-    if (fechaActual >= inicio && fechaActual <= fin) {
-      return 'ACTIVA';
-    } else {
-      return 'CADUCADA';
-    }
-  };
-
-  // Función para obtener el estado real de una promoción
-  const getEstadoReal = (promocion: Promocion): 'ACTIVA' | 'CADUCADA' => {
-    return verificarEstadoPorFechas(promocion.fechaInicio, promocion.fechaFin);
+  // Función para obtener el estado actual de una promoción
+  const getEstadoPromocion = (promocion: Promocion): 'ACTIVA' | 'CADUCADA' => {
+    return apiPromocion.isPromocionActiva(promocion) ? 'ACTIVA' : 'CADUCADA';
   };
 
   const getStatusColor = (promocion: Promocion): string => {
-    const estadoReal = getEstadoReal(promocion);
-    switch (estadoReal) {
+    const estado = getEstadoPromocion(promocion);
+    switch (estado) {
       case 'ACTIVA': return 'bg-green-100 text-green-800';
       case 'CADUCADA': return 'bg-red-100 text-red-800';
-      default: return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusText = (promocion: Promocion): string => {
-    const estadoReal = getEstadoReal(promocion);
-    switch (estadoReal) {
+    const estado = getEstadoPromocion(promocion);
+    switch (estado) {
       case 'ACTIVA': return 'Activa';
       case 'CADUCADA': return 'Caducada';
-      default: return 'Caducada';
+      default: return 'Desconocido';
     }
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('es-ES');
+    try {
+      return new Date(dateString).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch (error) {
+      return 'Fecha inválida';
+    }
+  };
+
+  const formatDateTime = (dateString: string): string => {
+    try {
+      return new Date(dateString).toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Fecha inválida';
+    }
   };
 
   // Función para descargar imagen
   const descargarImagen = async (url: string, nombre: string) => {
     try {
-      // Obtener la imagen como blob con headers específicos
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -543,38 +299,24 @@ setPromociones(prevPromociones =>
       }
       
       const blob = await response.blob();
-      
-      // Crear URL del blob
       const blobUrl = window.URL.createObjectURL(blob);
       
-      // Crear enlace de descarga con atributos específicos
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `${nombre}.jpg`;
+      link.download = `${nombre.replace(/[^a-z0-9]/gi, '_')}.jpg`;
       link.style.display = 'none';
-      link.setAttribute('download', `${nombre}.jpg`);
       
-      // Agregar al DOM, hacer clic y remover
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Limpiar URL del blob después de un breve delay
       setTimeout(() => {
         window.URL.revokeObjectURL(blobUrl);
       }, 100);
       
     } catch (error) {
       console.error('Error descargando imagen:', error);
-      // Fallback: forzar descarga con parámetros adicionales
-      const link = document.createElement('a');
-      link.href = `${url}?download=1&filename=${nombre}.jpg`;
-      link.download = `${nombre}.jpg`;
-      link.target = '_self';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      alert('Error al descargar la imagen');
     }
   };
 
@@ -583,230 +325,148 @@ setPromociones(prevPromociones =>
     window.open(url, '_blank');
   };
 
-
-  // Función para validar URLs de imágenes
-  const isValidImageUrl = (url: string): boolean => {
-    if (!url) return false;
-    try {
-      const urlObj = new URL(url);
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
-      return false;
-    }
+  // Función para limpiar filtros
+  const limpiarFiltros = () => {
+    setSearchTerm('');
+    setFilterStatus('all');
+    setFilterCategoria('all');
+    setCurrentPage(0);
+    setTimeout(() => {
+      loadPromociones(0, true);
+    }, 100);
   };
 
-  // Función para verificar si una imagen es accesible
-  const checkImageAccessibility = async (url: string): Promise<boolean> => {
-    try {
-      // Agregar timeout para evitar esperas largas
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
-      
-      const response = await fetch(url, { 
-        method: 'HEAD',
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      return response.ok;
-} catch (error: unknown) {
-  if (error instanceof Error) {
-    if (error.name === 'AbortError') {
-      console.warn(`⏰ Timeout verificando imagen: ${url}`);
-    } else {
-      console.warn(`❌ Error verificando imagen: ${url}`, error.message);
-    }
-  } else {
-    console.warn(`❌ Error desconocido verificando imagen: ${url}`, String(error));
-  }
-  return false;
-}
+  // Función para recargar datos
+  const recargarDatos = () => {
+    setError('');
+    setBackendStatus('unknown');
+    loadPromociones(currentPage, true);
   };
 
-  // Función para verificar todas las imágenes del backend
-  const verificarImagenesBackend = async () => {
-    try {
-      console.log('🔍 Verificando accesibilidad de imágenes del backend...');
-      
-      if (locales.length === 0) {
-        console.log('⚠️ No hay locales cargados para verificar');
-        return;
+  const getCategorias = (): string[] => {
+    const categorias = new Set<string>();
+    promociones.forEach(p => {
+      if (p.category) {
+        categorias.add(p.category);
       }
-
-      const localesConImagenes = locales.filter(local => local.logoUrl);
-      
-      if (localesConImagenes.length === 0) {
-        console.log('⚠️ No hay URLs de imágenes para verificar');
-        return;
-      }
-
-      console.log(`🖼️ Verificando ${localesConImagenes.length} imágenes...`);
-      
-      for (const local of localesConImagenes) {
-        if (local.logoUrl) {
-          const isAccessible = await checkImageAccessibility(local.logoUrl);
-          console.log(`${isAccessible ? '✅' : '❌'} ${local.commercialName}: ${local.logoUrl} - ${isAccessible ? 'Accesible' : 'No accesible'}`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error verificando imágenes:', error);
-    }
+    });
+    return Array.from(categorias).sort();
   };
-
-  // Función para generar imágenes de promoción basadas en los logos del backend
-  const generarImagenesPromocion = (logoUrl: string): string => {
-    try {
-      // Validar que la URL sea válida
-      if (!logoUrl || !isValidImageUrl(logoUrl)) {
-        console.warn('⚠️ URL de imagen no válida, usando imagen por defecto');
-        return `https://picsum.photos/400/250?random=${Math.floor(Math.random() * 1000)}`;
-      }
-      
-      // Si el logo es de un servicio de imágenes, generar variaciones
-      if (logoUrl.includes('picsum.photos')) {
-        const randomId = Math.floor(Math.random() * 1000);
-        return `https://picsum.photos/400/250?random=${randomId}`;
-      }
-      
-      // Si es otra URL, usar el logo como imagen de promoción
-      return logoUrl;
-    } catch (error) {
-      console.error('❌ Error generando imagen de promoción:', error);
-      // Fallback a imagen por defecto
-      return `https://picsum.photos/400/250?random=${Math.floor(Math.random() * 1000)}`;
-    }
-  };
-
-     // Función para cambiar el estado de una promoción
-   const cambiarEstadoPromocion = (promocionId: number, nuevoEstado: 'ACTIVA' | 'RECHAZADA') => {
-     try {
-       if (!verificarToken()) return;
- 
-       setLoading(true);
-       
-       // Simular cambio de estado (en producción esto se enviaría a la API)
-       setPromociones(prevPromociones => 
-         prevPromociones.map(promocion => 
-           promocion.id === promocionId 
-             ? { ...promocion, estado: nuevoEstado }
-             : promocion
-         )
-       );
-       
-       // Actualizar también las promociones filtradas
-       setPromocionesFiltradas(prevPromociones => 
-         prevPromociones.map(promocion => 
-           promocion.id === promocionId 
-             ? { ...promocion, estado: nuevoEstado }
-             : promocion
-         )
-       );
-       
-       // Mostrar mensaje de confirmación
-       const mensaje = nuevoEstado === 'ACTIVA' ? 'Promoción aceptada exitosamente' : 'Promoción rechazada exitosamente';
-       alert(mensaje);
-       
-       console.log(`✅ Estado de promoción ${promocionId} cambiado a: ${nuevoEstado}`);
-       
-     } catch (err) {
-       console.error('❌ Error cambiando estado de promoción:', err);
-       alert('Error al cambiar el estado de la promoción');
-     } finally {
-       setLoading(false);
-     }
-   };
- 
-   // Obtener promociones paginadas
-   const getPromocionesPaginadas = () => {
-     const startIndex = currentPage * pageSize;
-     const endIndex = startIndex + pageSize;
-     return promocionesFiltradas.slice(startIndex, endIndex);
-   };
 
   return (
     <div className="promociones-container">
-             <div className="promociones-header">
-         <div className="flex items-center justify-between">
-           <div>
-             <h1 className="promociones-title">
-               <Tag className="w-8 h-8 text-red-600 mr-3" />
-               Promociones de Locales Comerciales
-             </h1>
-                      <p className="promociones-subtitle">
-           Gestión y visualización de promociones activas de los locales comerciales
-         </p>
-           </div>
-           
-           {/* Indicador de estado del backend */}
-           <div className="flex items-center space-x-2">
-             <span className="text-sm text-gray-600">Backend:</span>
-             <div className={`w-3 h-3 rounded-full ${
-               backendStatus === 'connected' ? 'bg-green-500' : 
-               backendStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
-             }`}></div>
-             <span className={`text-xs ${
-               backendStatus === 'connected' ? 'text-green-600' : 
-               backendStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
-             }`}>
-               {backendStatus === 'connected' ? 'Conectado' : 
-                backendStatus === 'error' ? 'Error' : 'Verificando...'}
-             </span>
-           </div>
-         </div>
-       </div>
-
-             {/* Mensaje de error */}
-       {error && (
-         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-           <div className="flex items-center justify-between">
-             <div className="flex items-center">
-               <span className="text-lg mr-2">⚠️</span>
-               <span className="font-medium">{error}</span>
-             </div>
-             <button
-               onClick={() => setError('')}
-               className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
-             >
-               Cerrar
-             </button>
-           </div>
-         </div>
-       )}
-
-       {/* Mensaje de estado del backend */}
-       {backendStatus === 'error' && (
-         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-           <div className="flex items-center justify-between">
-             <div className="flex items-center">
-               <span className="text-lg mr-2">🔌</span>
-               <div>
-                 <span className="font-medium">Problemas de conexión con el backend</span>
-                 <p className="text-sm mt-1">
-                   La aplicación está funcionando con imágenes por defecto. 
-                   Algunas funcionalidades pueden estar limitadas.
-                 </p>
-               </div>
-             </div>
-             <button
-               onClick={() => {
-                 setBackendStatus('unknown');
-                 loadLocales();
-               }}
-               className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
-             >
-               Reintentar
-             </button>
-           </div>
-         </div>
-       )}
-
-      {/* Estadísticas */}
-      <div className="promociones-stats-grid">
-        <div className="promociones-stat-card">
-          <div className="promociones-stat-content">
-             </div>
+      {/* Header */}
+      <div className="promociones-header">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="promociones-title">
+              <Tag className="w-8 h-8 text-red-600 mr-3" />
+              Promociones de Locales Comerciales
+            </h1>
+            <p className="promociones-subtitle">
+              Gestión y visualización de promociones activas de los locales comerciales
+            </p>
+          </div>
+          
+          {/* Indicador de estado del backend */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Backend:</span>
+              <div className={`w-3 h-3 rounded-full ${
+                backendStatus === 'connected' ? 'bg-green-500' : 
+                backendStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+              }`}></div>
+              <span className={`text-xs ${
+                backendStatus === 'connected' ? 'text-green-600' : 
+                backendStatus === 'error' ? 'text-red-600' : 'text-yellow-600'
+              }`}>
+                {backendStatus === 'connected' ? 'Conectado' : 
+                 backendStatus === 'error' ? 'Error' : 'Verificando...'}
+              </span>
+            </div>
+            
+            <button
+              onClick={recargarDatos}
+              className="flex items-center gap-2 px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+              disabled={loading}
+            >
+              <Clock className="w-4 h-4" />
+              Actualizar
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Mensaje de error */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              <span className="font-medium">{error}</span>
+            </div>
+            <button
+              onClick={() => setError('')}
+              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Estadísticas */}
+      {estadisticas && (
+        <div className="promociones-stats-grid">
+          <div className="promociones-stat-card">
+            <div className="promociones-stat-content">
+              <div>
+                <div className="promociones-stat-text-sm">Total Promociones</div>
+                <div className="promociones-stat-text-lg">{estadisticas.totalPromociones}</div>
+              </div>
+              <div className="promociones-stat-icon-container bg-blue-100">
+                <Tag className="promociones-stat-icon text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="promociones-stat-card">
+            <div className="promociones-stat-content">
+              <div>
+                <div className="promociones-stat-text-sm">Promociones Activas</div>
+                <div className="promociones-stat-text-lg text-green-600">{estadisticas.activas}</div>
+              </div>
+              <div className="promociones-stat-icon-container bg-green-100">
+                <Check className="promociones-stat-icon text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="promociones-stat-card">
+            <div className="promociones-stat-content">
+              <div>
+                <div className="promociones-stat-text-sm">Promociones Caducadas</div>
+                <div className="promociones-stat-text-lg text-red-600">{estadisticas.caducadas}</div>
+              </div>
+              <div className="promociones-stat-icon-container bg-red-100">
+                <X className="promociones-stat-icon text-red-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="promociones-stat-card">
+            <div className="promociones-stat-content">
+              <div>
+                <div className="promociones-stat-text-sm">Categorías</div>
+                <div className="promociones-stat-text-lg">{Object.keys(estadisticas.porCategoria).length}</div>
+              </div>
+              <div className="promociones-stat-icon-container bg-purple-100">
+                <Filter className="promociones-stat-icon text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filtros y búsqueda */}
       <div className="promociones-filters">
@@ -819,7 +479,7 @@ setPromociones(prevPromociones =>
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="promociones-search-input"
-              disabled={!apiService.isAuthenticated() || loading}
+              disabled={!apiPromocion.isAuthenticated() || loading}
             />
           </div>
 
@@ -828,50 +488,54 @@ setPromociones(prevPromociones =>
               <Filter className="promociones-filter-icon" />
               <select
                 value={filterStatus}
-                onChange={(e) => handleFilterChange(e.target.value)}
+                onChange={(e) => handleFilterChange(e.target.value as 'all' | 'activa' | 'caducada')}
                 className="promociones-filter-select"
-                disabled={!apiService.isAuthenticated() || loading}
+                disabled={!apiPromocion.isAuthenticated() || loading}
               >
-                                 <option value="all">Todos los estados</option>
-                 <option value="activa">Activa</option>
-                 <option value="caducada">Caducada</option>
+                <option value="all">Todos los estados</option>
+                <option value="activa">Activas</option>
+                <option value="caducada">Caducadas</option>
               </select>
             </div>
 
             <div className="promociones-filter-group">
-              <Filter className="promociones-filter-icon" />
+              <Tag className="promociones-filter-icon" />
               <select
                 value={filterCategoria}
                 onChange={(e) => handleCategoriaChange(e.target.value)}
                 className="promociones-filter-select"
-                disabled={!apiService.isAuthenticated() || loading}
+                disabled={!apiPromocion.isAuthenticated() || loading}
               >
                 <option value="all">Todas las categorías</option>
-                <option value="alimentos">Alimentos</option>
-                <option value="comercio">Comercio</option>
-                <option value="salud">Salud</option>
-                <option value="servicios">Servicios</option>
+                {getCategorias().map(categoria => (
+                  <option key={categoria} value={categoria}>{categoria}</option>
+                ))}
               </select>
             </div>
 
-                         <div className="promociones-filter-group">
-               <span className="text-sm text-gray-600">Mostrar:</span>
-               <select
-                 value={pageSize}
-                 onChange={(e) => changePageSize(parseInt(e.target.value))}
-                 className="promociones-filter-select"
-                 disabled={!apiService.isAuthenticated() || loading}
-               >
-                 <option value={5}>5 por página</option>
-                 <option value={10}>10 por página</option>
-                 <option value={20}>20 por página</option>
-                 <option value={50}>50 por página</option>
-               </select>
-             </div>
+            <div className="promociones-filter-group">
+              <span className="text-sm text-gray-600">Mostrar:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => changePageSize(parseInt(e.target.value))}
+                className="promociones-filter-select"
+                disabled={!apiPromocion.isAuthenticated() || loading}
+              >
+                <option value={10}>10 por página</option>
+                <option value={20}>20 por página</option>
+                <option value={50}>50 por página</option>
+              </select>
+            </div>
 
-             
-
-                         
+            {(searchTerm || filterStatus !== 'all' || filterCategoria !== 'all') && (
+              <button
+                onClick={limpiarFiltros}
+                className="promociones-filter-select bg-gray-100 hover:bg-gray-200 border-gray-300"
+                disabled={loading}
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -880,52 +544,53 @@ setPromociones(prevPromociones =>
       {loading && (
         <div className="flex justify-center items-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-          <span className="ml-2 text-gray-600">
-            {promociones.length === 0 ? 'Cargando promociones...' : 'Actualizando...'}
-          </span>
+          <span className="ml-2 text-gray-600">Cargando promociones...</span>
         </div>
       )}
 
       {/* Lista de promociones */}
       <div className="promociones-list">
-        {!loading && promocionesFiltradas.length === 0 && promociones.length > 0 && (
+        {!loading && promocionesPaginadas.length === 0 && (
           <div className="text-center py-8">
             <div className="text-gray-500">
               <Tag className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No se encontraron promociones</p>
               <p className="text-sm">
-                {filterStatus !== 'all' || filterCategoria !== 'all'
-                  ? 'No hay promociones con los filtros aplicados'
-                  : searchTerm
-                    ? `No hay promociones que coincidan con "${searchTerm}"`
-                    : 'No hay promociones registradas'
-                }
+                {error ? 'Hubo un problema al cargar las promociones.' :
+                 filterStatus !== 'all' || filterCategoria !== 'all' || searchTerm ?
+                 'No hay promociones con los filtros aplicados' :
+                 'No hay promociones registradas'}
               </p>
-              <button
-                onClick={() => {
-                  setFilterStatus('all');
-                  setFilterCategoria('all');
-                  setSearchTerm('');
-                  filtrarPromociones();
-                }}
-                className="mt-4 text-blue-600 hover:text-blue-800 underline"
-              >
-                Limpiar filtros
-              </button>
+              {!error && (
+                <div className="mt-4 space-x-2">
+                  <button
+                    onClick={limpiarFiltros}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Limpiar filtros
+                  </button>
+                  <button
+                    onClick={recargarDatos}
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Recargar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {!loading && getPromocionesPaginadas().map((promocion) => (
+        {!loading && promocionesPaginadas.map((promocion) => (
           <div key={promocion.id} className="promociones-card">
             <div className="promociones-card-content">
               <div className="promociones-card-main">
                 <div className="promociones-card-header">
                   <div className="promociones-card-logo">
-                    {promocion.logoEmpresa ? (
+                    {promocion.logoUrl ? (
                       <img 
-                        src={promocion.logoEmpresa} 
-                        alt={`Logo ${promocion.nombreLocal}`}
+                        src={promocion.logoUrl} 
+                        alt={`Logo ${promocion.businessName}`}
                         className="w-16 h-16 rounded-lg object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
@@ -934,35 +599,42 @@ setPromociones(prevPromociones =>
                         }}
                       />
                     ) : null}
-                    <div className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${promocion.logoEmpresa ? 'hidden' : ''}`}>
+                    <div className={`w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center ${promocion.logoUrl ? 'hidden' : ''}`}>
                       <Building className="w-8 h-8 text-gray-400" />
                     </div>
                   </div>
                   <div className="promociones-card-info">
                     <div className="promociones-card-title">
-                      <h3 className="promociones-card-name">{promocion.nombreLocal}</h3>
+                      <h3 className="promociones-card-name">{promocion.businessName}</h3>
                       <span className={`promociones-card-badge ${getStatusColor(promocion)}`}>
                         {getStatusText(promocion)}
                       </span>
-                      <span className="promociones-card-badge bg-blue-100 text-blue-800">
-                        {promocion.categoria}
-                      </span>
+                      {promocion.category && (
+                        <span className="promociones-card-badge bg-blue-100 text-blue-800">
+                          {promocion.category}
+                        </span>
+                      )}
+                      {promocion.promotionType && (
+                        <span className="promociones-card-badge bg-purple-100 text-purple-800">
+                          {promocion.promotionType.replace('_', ' ')}
+                        </span>
+                      )}
                     </div>
-                    <p className="promociones-card-description">{promocion.descripcionPromocion}</p>
+                    <p className="promociones-card-description">{promocion.description}</p>
                     <div className="promociones-card-dates">
                       <span className="text-sm text-gray-600">
                         <Calendar className="w-4 h-4 inline mr-1" />
-                        {formatDate(promocion.fechaInicio)} - {formatDate(promocion.fechaFin)}
+                        {formatDate(promocion.startDate)} - {formatDate(promocion.endDate)}
                       </span>
                     </div>
                   </div>
                 </div>
                 
                 {/* Imagen de la promoción */}
-                {promocion.imagenPromocion && (
+                {promocion.imageUrl && (
                   <div className="promociones-card-image">
                     <img 
-                      src={promocion.imagenPromocion} 
+                      src={promocion.imageUrl} 
                       alt="Imagen promoción"
                       className="w-full h-48 object-cover rounded-lg shadow-sm"
                       onError={(e) => {
@@ -979,59 +651,46 @@ setPromociones(prevPromociones =>
                 )}
 
                 {/* Información de precios si está disponible */}
-                {promocion.precioOriginal && promocion.precioPromocional && (
+                {(promocion.originalPrice || promocion.promotionalPrice || promocion.discountPercentage) && (
                   <div className="promociones-card-prices">
-                    <span className="text-gray-500 line-through">${promocion.precioOriginal}</span>
-                    <span className="text-2xl font-bold text-red-600">${promocion.precioPromocional}</span>
-                    {promocion.descuento && (
+                    {promocion.originalPrice && promocion.promotionalPrice && (
+                      <>
+                        <span className="text-gray-500 line-through">${promocion.originalPrice}</span>
+                        <span className="text-2xl font-bold text-red-600">${promocion.promotionalPrice}</span>
+                      </>
+                    )}
+                    {promocion.discountPercentage && (
                       <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm font-medium">
-                        -{promocion.descuento}%
+                        -{promocion.discountPercentage}%
+                      </span>
+                    )}
+                    {promocion.discountAmount && (
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+                        -${promocion.discountAmount}
                       </span>
                     )}
                   </div>
                 )}
               </div>
 
-                              {/* Botón de acción */}
-                <div className="promociones-card-actions">
-                  <button
-                    onClick={() => {
-                      setSelectedPromocion(promocion);
-                      setShowViewModal(true);
-                    }}
-                    className="promociones-action-button bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
-                    title="Ver detalles de la promoción"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span>Ver</span>
-                  </button>
-                </div>
+              {/* Botones de acción */}
+              <div className="promociones-card-actions">
+                <button
+                  onClick={() => {
+                    setSelectedPromocion(promocion);
+                    setShowViewModal(true);
+                  }}
+                  className="promociones-action-button bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2"
+                  title="Ver detalles de la promoción"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Ver Detalles</span>
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Mensaje cuando no hay promociones */}
-      {!loading && promociones.length === 0 && (
-        <div className="text-center py-12">
-          <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay promociones</h3>
-          <p className="text-gray-500 mb-4">
-            {error ?
-              'Hubo un problema al cargar las promociones.' :
-              'Aún no hay promociones registradas.'
-            }
-          </p>
-          {!error && apiService.isAuthenticated() && (
-            <button
-              onClick={() => loadPromociones()}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-            >
-              Recargar promociones
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Paginación */}
       {!loading && totalPages > 1 && (
@@ -1039,14 +698,14 @@ setPromociones(prevPromociones =>
           <div className="flex-1 flex justify-between sm:hidden">
             <button
               onClick={() => changePage(currentPage - 1)}
-              disabled={currentPage === 0 || !apiService.isAuthenticated() || loading}
+              disabled={currentPage === 0 || loading}
               className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Anterior
             </button>
             <button
               onClick={() => changePage(currentPage + 1)}
-              disabled={currentPage >= totalPages - 1 || !apiService.isAuthenticated() || loading}
+              disabled={currentPage >= totalPages - 1 || loading}
               className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Siguiente
@@ -1060,16 +719,24 @@ setPromociones(prevPromociones =>
                 <span className="font-medium">{currentPage * pageSize + 1}</span>
                 {' '}a{' '}
                 <span className="font-medium">
-                  {Math.min((currentPage + 1) * pageSize, promocionesFiltradas.length)}
+                  {Math.min((currentPage + 1) * pageSize, totalElements)}
                 </span>
                 {' '}de{' '}
-                <span className="font-medium">{promocionesFiltradas.length}</span>
+                <span className="font-medium">{totalElements}</span>
                 {' '}promociones
               </p>
             </div>
 
             <div>
               <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                <button
+                  onClick={() => changePage(currentPage - 1)}
+                  disabled={currentPage === 0 || loading}
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Anterior
+                </button>
+                
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;
                   if (totalPages <= 5) {
@@ -1086,259 +753,27 @@ setPromociones(prevPromociones =>
                     <button
                       key={pageNum}
                       onClick={() => changePage(pageNum)}
-                      disabled={!apiService.isAuthenticated() || loading}
+                      disabled={loading}
                       className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                         currentPage === pageNum
                           ? 'z-10 bg-red-50 border-red-500 text-red-600'
                           : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {pageNum + 1}
                     </button>
                   );
                 })}
+                
+                <button
+                  onClick={() => changePage(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1 || loading}
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Siguiente
+                </button>
               </nav>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para nueva promoción */}
-      {showModal && (
-        <div className="promociones-modal-overlay">
-          <div className="promociones-modal">
-            <h2 className="promociones-modal-title">Nueva Promoción</h2>
-            <form onSubmit={crearPromocion} className="promociones-modal-form">
-              <div className="promociones-form-grid">
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Nombre del Local *
-                  </label>
-                  <select
-                    value={newPromocion.nombreLocal}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, nombreLocal: e.target.value })}
-                    className="promociones-form-select"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  >
-                    <option value="">Seleccionar local</option>
-                    {locales.map(local => (
-                      <option key={local.id} value={local.commercialName}>
-                        {local.commercialName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Categoría *
-                  </label>
-                  <select
-                    value={newPromocion.categoria}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, categoria: e.target.value })}
-                    className="promociones-form-select"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  >
-                    <option value="">Seleccionar categoría</option>
-                    <option value="Alimentos">Alimentos</option>
-                    <option value="Comercio">Comercio</option>
-                    <option value="Salud">Salud</option>
-                    <option value="Servicios">Servicios</option>
-                  </select>
-                </div>
-
-                <div className="promociones-form-group locales-form-full-width">
-                  <label className="promociones-form-label">
-                    Descripción de la Promoción *
-                  </label>
-                  <textarea
-                    value={newPromocion.descripcionPromocion}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, descripcionPromocion: e.target.value })}
-                    className="promociones-form-input"
-                    rows={3}
-                    placeholder="Describe la promoción..."
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Fecha de Inicio *
-                  </label>
-                  <input
-                    type="date"
-                    value={newPromocion.fechaInicio}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, fechaInicio: e.target.value })}
-                    className="promociones-form-input"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Fecha de Fin *
-                  </label>
-                  <input
-                    type="date"
-                    value={newPromocion.fechaFin}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, fechaFin: e.target.value })}
-                    className="promociones-form-input"
-                    required
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Descuento (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newPromocion.descuento}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, descuento: parseInt(e.target.value) || 0 })}
-                    className="promociones-form-input"
-                    placeholder="0"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Precio Original ($)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newPromocion.precioOriginal}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, precioOriginal: parseFloat(e.target.value) || 0 })}
-                    className="promociones-form-input"
-                    placeholder="0.00"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Precio Promocional ($)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newPromocion.precioPromocional}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, precioPromocional: parseFloat(e.target.value) || 0 })}
-                    className="promociones-form-input"
-                    placeholder="0.00"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Logo de la Empresa (URL)
-                  </label>
-                  <input
-                    type="url"
-                    value={newPromocion.logoEmpresa}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, logoEmpresa: e.target.value })}
-                    className="promociones-form-input"
-                    placeholder="https://ejemplo.com/logo.png"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                  {newPromocion.logoEmpresa && !isValidImageUrl(newPromocion.logoEmpresa) && (
-                    <p className="text-red-500 text-xs mt-1">URL de imagen no válida</p>
-                  )}
-                </div>
-
-                <div className="promociones-form-group">
-                  <label className="promociones-form-label">
-                    Imagen de la Promoción (URL)
-                  </label>
-                  <input
-                    type="url"
-                    value={newPromocion.imagenPromocion}
-                    onChange={(e) => setNewPromocion({ ...newPromocion, imagenPromocion: e.target.value })}
-                    className="promociones-form-input"
-                    placeholder="https://ejemplo.com/promocion.jpg"
-                    disabled={!apiService.isAuthenticated() || loading}
-                  />
-                  {newPromocion.imagenPromocion && !isValidImageUrl(newPromocion.imagenPromocion) && (
-                    <p className="text-red-500 text-xs mt-1">URL de imagen no válida</p>
-                  )}
-                </div>
-
-                {/* Vista previa de imágenes */}
-                {(newPromocion.logoEmpresa || newPromocion.imagenPromocion) && (
-                  <div className="promociones-form-group locales-form-full-width">
-                    <label className="promociones-form-label">Vista Previa</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                      {newPromocion.logoEmpresa && isValidImageUrl(newPromocion.logoEmpresa) && (
-                        <div className="text-center">
-                          <p className="text-sm text-gray-600 mb-2">Logo</p>
-                          <img 
-                            src={newPromocion.logoEmpresa} 
-                            alt="Vista previa logo"
-                            className="w-24 h-24 object-cover rounded-lg border mx-auto"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="hidden w-24 h-24 bg-gray-200 rounded-lg border flex items-center justify-center mx-auto">
-                            <Building className="w-8 h-8 text-gray-400" />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {newPromocion.imagenPromocion && isValidImageUrl(newPromocion.imagenPromocion) && (
-                        <div className="text-center">
-                          <p className="text-sm text-gray-600 mb-2">Imagen Promoción</p>
-                          <img 
-                            src={newPromocion.imagenPromocion} 
-                            alt="Vista previa promoción"
-                            className="w-32 h-24 object-cover rounded-lg border mx-auto"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="hidden w-32 h-24 bg-gray-200 rounded-lg border flex items-center justify-center mx-auto">
-                            <Image className="w-8 h-8 text-gray-400" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="promociones-modal-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="promociones-cancel-button"
-                  disabled={loading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="promociones-submit-button"
-                  disabled={loading || !apiService.isAuthenticated()}
-                >
-                  {loading ? 'Creando...' : 'Crear Promoción'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -1358,7 +793,7 @@ setPromociones(prevPromociones =>
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <span className="text-2xl font-bold">×</span>
+                <X className="w-6 h-6" />
               </button>
             </div>
 
@@ -1366,29 +801,37 @@ setPromociones(prevPromociones =>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
-                    Información del Local
+                    Información del Negocio
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Local</label>
-                      <p className="text-sm text-gray-900 font-medium">{selectedPromocion.nombreLocal}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Negocio</label>
+                      <p className="text-sm text-gray-900 font-medium">{selectedPromocion.businessName}</p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Representante</label>
-                      <p className="text-sm text-gray-900">{selectedPromocion.datosPersona.nombre}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Cédula</label>
-                      <p className="text-sm text-gray-900">{selectedPromocion.datosPersona.cedula}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                      <p className="text-sm text-gray-900">{selectedPromocion.datosPersona.telefono}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <p className="text-sm text-gray-900">{selectedPromocion.datosPersona.email}</p>
-                    </div>
+                    {selectedPromocion.representativeName && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Representante</label>
+                        <p className="text-sm text-gray-900">{selectedPromocion.representativeName}</p>
+                      </div>
+                    )}
+                    {selectedPromocion.phone && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <p className="text-sm text-gray-900">{selectedPromocion.phone}</p>
+                      </div>
+                    )}
+                    {selectedPromocion.email && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <p className="text-sm text-gray-900">{selectedPromocion.email}</p>
+                      </div>
+                    )}
+                    {selectedPromocion.address && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <p className="text-sm text-gray-900">{selectedPromocion.address}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1397,9 +840,15 @@ setPromociones(prevPromociones =>
                     Detalles de la Promoción
                   </h3>
                   <div className="space-y-4">
+                    {selectedPromocion.category && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                        <p className="text-sm text-gray-900">{selectedPromocion.category}</p>
+                      </div>
+                    )}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                      <p className="text-sm text-gray-900">{selectedPromocion.categoria}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Promoción</label>
+                      <p className="text-sm text-gray-900">{selectedPromocion.promotionType.replace('_', ' ')}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
@@ -1409,18 +858,12 @@ setPromociones(prevPromociones =>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
-                      <p className="text-sm text-gray-900">{formatDate(selectedPromocion.fechaInicio)}</p>
+                      <p className="text-sm text-gray-900">{formatDateTime(selectedPromocion.startDate)}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Fin</label>
-                      <p className="text-sm text-gray-900">{formatDate(selectedPromocion.fechaFin)}</p>
+                      <p className="text-sm text-gray-900">{formatDateTime(selectedPromocion.endDate)}</p>
                     </div>
-                    {selectedPromocion.descuento && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Descuento</label>
-                        <p className="text-sm text-gray-900 font-semibold text-red-600">{selectedPromocion.descuento}%</p>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1430,28 +873,40 @@ setPromociones(prevPromociones =>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-blue-200 pb-2">
                     Descripción de la Promoción
                   </h3>
-                  <p className="text-sm text-gray-900 leading-relaxed">{selectedPromocion.descripcionPromocion}</p>
+                  <p className="text-sm text-gray-900 leading-relaxed">{selectedPromocion.description}</p>
                 </div>
                 
-                {selectedPromocion.precioOriginal && selectedPromocion.precioPromocional && (
+                {(selectedPromocion.originalPrice || selectedPromocion.promotionalPrice || selectedPromocion.discountPercentage || selectedPromocion.discountAmount) && (
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-green-200 pb-2">
-                      Información de Precios
+                      Información de Precios y Descuentos
                     </h3>
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Precio Original</label>
-                        <span className="text-xl text-gray-500 line-through">${selectedPromocion.precioOriginal}</span>
-                      </div>
-                      <div className="text-center">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Precio Promocional</label>
-                        <span className="text-3xl font-bold text-red-600">${selectedPromocion.precioPromocional}</span>
-                      </div>
-                      {selectedPromocion.descuento && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {selectedPromocion.originalPrice && (
+                        <div className="text-center">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Precio Original</label>
+                          <span className="text-xl text-gray-500 line-through">${selectedPromocion.originalPrice}</span>
+                        </div>
+                      )}
+                      {selectedPromocion.promotionalPrice && (
+                        <div className="text-center">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Precio Promocional</label>
+                          <span className="text-2xl font-bold text-red-600">${selectedPromocion.promotionalPrice}</span>
+                        </div>
+                      )}
+                      {selectedPromocion.discountPercentage && (
                         <div className="text-center">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Descuento</label>
                           <span className="bg-red-100 text-red-800 px-4 py-2 rounded-full text-lg font-bold">
-                            -{selectedPromocion.descuento}%
+                            -{selectedPromocion.discountPercentage}%
+                          </span>
+                        </div>
+                      )}
+                      {selectedPromocion.discountAmount && (
+                        <div className="text-center">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Descuento Fijo</label>
+                          <span className="bg-green-100 text-green-800 px-4 py-2 rounded-full text-lg font-bold">
+                            -${selectedPromocion.discountAmount}
                           </span>
                         </div>
                       )}
@@ -1460,108 +915,122 @@ setPromociones(prevPromociones =>
                 )}
 
                 {/* Imágenes */}
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-purple-200 pb-2">
-                    Imágenes de la Promoción
+                {(selectedPromocion.logoUrl || selectedPromocion.imageUrl) && (
+                  <div className="bg-purple-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-purple-200 pb-2">
+                      Imágenes de la Promoción
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {selectedPromocion.logoUrl && (
+                        <div className="text-center">
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Logo del Negocio</label>
+                          <div className="relative inline-block">
+                            <img 
+                              src={selectedPromocion.logoUrl} 
+                              alt={`Logo ${selectedPromocion.businessName}`}
+                              className="w-40 h-40 object-cover rounded-lg border-2 border-purple-200 shadow-lg hover:scale-105 transition-transform duration-200"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-40 h-40 bg-gray-200 rounded-lg border-2 border-purple-200 flex items-center justify-center">
+                              <Building className="w-12 h-12 text-gray-400" />
+                            </div>
+                          </div>
+                          <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                            <button
+                              onClick={() => verImagenEnLinea(selectedPromocion.logoUrl!)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Ver imagen en línea"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Ver en línea
+                            </button>
+                            <button
+                              onClick={() => descargarImagen(selectedPromocion.logoUrl!, `logo-${selectedPromocion.businessName}`)}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Descargar imagen"
+                            >
+                              <Download className="w-3 h-3" />
+                              Descargar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedPromocion.imageUrl && (
+                        <div className="text-center">
+                          <label className="block text-sm font-medium text-gray-700 mb-3">Imagen de la Promoción</label>
+                          <div className="relative inline-block">
+                            <img 
+                              src={selectedPromocion.imageUrl} 
+                              alt="Imagen promoción"
+                              className="w-full max-w-xs h-48 object-cover rounded-lg border-2 border-purple-200 shadow-lg hover:scale-105 transition-transform duration-200"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-full max-w-xs h-48 bg-gray-200 rounded-lg border-2 border-purple-200 flex items-center justify-center">
+                              <Image className="w-16 h-16 text-gray-400" />
+                              <span className="text-gray-500 text-sm ml-2">Imagen no disponible</span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                            <button
+                              onClick={() => verImagenEnLinea(selectedPromocion.imageUrl!)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Ver imagen en línea"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Ver en línea
+                            </button>
+                            <button
+                              onClick={() => descargarImagen(selectedPromocion.imageUrl!, `promocion-${selectedPromocion.businessName}`)}
+                              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Descargar imagen"
+                            >
+                              <Download className="w-3 h-3" />
+                              Descargar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Información técnica */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+                    Información Técnica
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedPromocion.logoEmpresa && (
-                      <div className="text-center">
-                        <label className="block text-sm font-medium text-gray-700 mb-3">Logo de la Empresa</label>
-                        <div className="relative inline-block">
-                          <img 
-                            src={selectedPromocion.logoEmpresa} 
-                            alt={`Logo ${selectedPromocion.nombreLocal}`}
-                            className="w-40 h-40 object-cover rounded-lg border-2 border-purple-200 shadow-lg hover:scale-105 transition-transform duration-200"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="hidden w-40 h-40 bg-gray-200 rounded-lg border-2 border-purple-200 flex items-center justify-center">
-                            <Building className="w-12 h-12 text-gray-400" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {selectedPromocion.imagenPromocion && (
-                      <div className="text-center">
-                        <label className="block text-sm font-medium text-gray-700 mb-3">Imagen de la Promoción</label>
-                        <div className="relative inline-block">
-                          <img 
-                            src={selectedPromocion.imagenPromocion} 
-                            alt="Imagen promoción"
-                            className="w-full max-w-xs h-48 object-cover rounded-lg border-2 border-purple-200 shadow-lg hover:scale-105 transition-transform duration-200"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              target.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="hidden w-full max-w-xs h-48 bg-gray-200 rounded-lg border-2 border-purple-200 flex items-center justify-center">
-                            <Image className="w-16 h-16 text-gray-400" />
-                            <span className="text-gray-500 text-sm ml-2">Imagen no disponible</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex gap-2 justify-center flex-wrap">
-                          <button
-                            onClick={() => verImagenEnLinea(selectedPromocion.imagenPromocion!)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
-                            title="Ver imagen en línea"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            Ver en línea
-                          </button>
-                          <button
-                            onClick={() => descargarImagen(selectedPromocion.imagenPromocion!, `promocion-${selectedPromocion.nombreLocal}`)}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors"
-                            title="Descargar imagen"
-                          >
-                            <Download className="w-3 h-3" />
-                            Descargar
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID de Promoción</label>
+                      <p className="text-sm text-gray-900 font-mono">{selectedPromocion.id}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID del Negocio</label>
+                      <p className="text-sm text-gray-900 font-mono">{selectedPromocion.businessId}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Creación</label>
+                      <p className="text-sm text-gray-900">{formatDateTime(selectedPromocion.createdAt)}</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Última Actualización</label>
+                      <p className="text-sm text-gray-900">{formatDateTime(selectedPromocion.updatedAt)}</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex justify-end items-center mt-6 pt-4 border-t">
-              {/* Botones de Aceptar y Rechazar solo para promociones no activas */}
-              {getEstadoReal(selectedPromocion) !== 'ACTIVA' && (
-                <div className="flex gap-3 mr-auto">
-                  <button
-                    onClick={() => {
-                      cambiarEstadoPromocion(selectedPromocion.id, 'ACTIVA');
-                      setShowViewModal(false);
-                      setSelectedPromocion(null);
-                    }}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                    title="Activar promoción"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>Activar</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      cambiarEstadoPromocion(selectedPromocion.id, 'RECHAZADA');
-                      setShowViewModal(false);
-                      setSelectedPromocion(null);
-                    }}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition-colors"
-                    title="Marcar como caducada"
-                  >
-                    <X className="w-4 h-4" />
-                    <span>Caducar</span>
-                  </button>
-                </div>
-              )}
-              
               <button
                 onClick={() => {
                   setShowViewModal(false);
@@ -1576,6 +1045,27 @@ setPromociones(prevPromociones =>
         </div>
       )}
 
+      {/* Mensaje cuando no hay promociones */}
+      {!loading && promocionesPaginadas.length === 0 && totalElements === 0 && (
+        <div className="text-center py-12">
+          <Tag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay promociones disponibles</h3>
+          <p className="text-gray-500 mb-4">
+            {error ?
+              'Hubo un problema al cargar las promociones desde el servidor.' :
+              'Aún no hay promociones registradas en el sistema.'
+            }
+          </p>
+          {!error && apiPromocion.isAuthenticated() && (
+            <button
+              onClick={recargarDatos}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+              Recargar promociones
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
